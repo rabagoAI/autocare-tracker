@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoCare Tracker - Gestión de Gastos Vehiculares</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M5 17a2 2 0 1 0 4 0a2 2 0 0 0-4 0M15 17a2 2 0 1 0 4 0a2 2 0 0 0-4 0"/>
+                    <path d="M5 17H3v-4l2-5h9l4 5h1a2 2 0 0 1 2 2v4h-2m-7 3h8m-8 3h8m-8 3h8"/>
+                </svg>
+                <span>AutoCare</span>
+            </div>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <a href="#" class="nav-item active" data-page="dashboard">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="7" height="7"/>
+                    <rect x="14" y="3" width="7" height="7"/>
+                    <rect x="14" y="14" width="7" height="7"/>
+                    <rect x="3" y="14" width="7" height="7"/>
+                </svg>
+                <span>Dashboard</span>
+            </a>
+            <a href="#" class="nav-item" data-page="vehicles">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M5 17a2 2 0 1 0 4 0a2 2 0 0 0-4 0M15 17a2 2 0 1 0 4 0a2 2 0 0 0-4 0"/>
+                    <path d="M3 15h18v-2H3v2zM5 17V8l4-3 4 3v9"/>
+                </svg>
+                <span>Mis Vehículos</span>
+            </a>
+            <a href="#" class="nav-item" data-page="expenses">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="1" x2="12" y2="23"/>
+                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                </svg>
+                <span>Gastos</span>
+            </a>
+            <a href="#" class="nav-item" data-page="reports">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 20V10M12 20V4M6 20v-6"/>
+                </svg>
+                <span>Informes</span>
+            </a>
+            <a href="#" class="nav-item" data-page="settings">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+                <span>Configuración</span>
+            </a>
+        </nav>
+        
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <div class="avatar">U</div>
+                <div class="user-details">
+                    <span class="user-name">Usuario</span>
+                    <span class="user-role">Propietario</span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Header -->
+        <header class="header">
+            <button class="menu-toggle" id="menuToggle">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="3" y1="12" x2="21" y2="12"/>
+                    <line x1="3" y1="6" x2="21" y2="6"/>
+                    <line x1="3" y1="18" x2="21" y2="18"/>
+                </svg>
+            </button>
+            <div class="header-title">
+                <h1 id="pageTitle">Dashboard</h1>
+                <p class="header-subtitle" id="pageSubtitle">Resumen de tus vehículos</p>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-primary" id="addExpenseBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"/>
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                    Añadir Gasto
+                </button>
+            </div>
+        </header>
+
+        <!-- Dashboard Page -->
+        <section class="page active" id="dashboardPage">
+            <!-- Stats Cards -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon vehicles">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M5 17a2 2 0 1 0 4 0a2 2 0 0 0-4 0M15 17a2 2 0 1 0 4 0a2 2 0 0 0-4 0"/>
+                            <path d="M5 17V8l4-3 4 3v9"/>
+                        </svg>
+                    </div>
+                    <div class="stat-content">
+                        <span class="stat-value" id="totalVehicles">0</span>
+                        <span class="stat-label">Vehículos</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon expenses">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="1" x2="12" y2="23"/>
+                            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                        </svg>
+                    </div>
+                    <div class="stat-content">
+                        <span class="stat-value" id="totalExpenses">0 €</span>
+                        <span class="stat-label">Total Gastos</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon monthly">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                            <line x1="16" y1="2" x2="16" y2="6"/>
+                            <line x1="8" y1="2" x2="8" y2="6"/>
+                            <line x1="3" y1="10" x2="21" y2="10"/>
+                        </svg>
+                    </div>
+                    <div class="stat-content">
+                        <span class="stat-value" id="monthlyExpenses">0 €</span>
+                        <span class="stat-label">Este Mes</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon alerts">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                            <line x1="12" y1="9" x2="12" y2="13"/>
+                            <line x1="12" y1="17" x2="12.01" y2="17"/>
+                        </svg>
+                    </div>
+                    <div class="stat-content">
+                        <span class="stat-value" id="pendingAlerts">0</span>
+                        <span class="stat-label">Mantenimientos</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="charts-section">
+                <div class="chart-card">
+                    <div class="card-header">
+                        <h3>Distribución de Gastos</h3>
+                        <select id="chartPeriod" class="select-sm">
+                            <option value="all">Todo el tiempo</option>
+                            <option value="year">Este Año</option>
+                            <option value="month">Este Mes</option>
+                        </select>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="expensesChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="card-header">
+                        <h3>Gastos por Vehículo</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="vehicleChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity & Alerts -->
+            <div class="dashboard-bottom">
+                <div class="activity-card">
+                    <div class="card-header">
+                        <h3>Actividad Reciente</h3>
+                        <a href="#" class="view-all" data-page="expenses">Ver todos</a>
+                    </div>
+                    <div class="activity-list" id="recentActivity">
+                        <div class="empty-state">
+                            <p>No hay actividad reciente</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="alerts-card">
+                    <div class="card-header">
+                        <h3>Mantenimientos Próximos</h3>
+                        <a href="#" class="view-all" data-page="vehicles">Ver vehículos</a>
+                    </div>
+                    <div class="alerts-list" id="alertsList">
+                        <div class="empty-state">
+                            <p>No hay mantenimientos próximos</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Vehicles Page -->
+        <section class="page" id="vehiclesPage">
+            <div class="page-header">
+                <div class="page-info">
+                    <h2>Mis Vehículos</h2>
+                    <p>Gestiona todos tus vehículos y su información</p>
+                </div>
+                <button class="btn btn-primary" id="addVehicleBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"/>
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                    Añadir Vehículo
+                </button>
+            </div>
+            <div class="vehicles-grid" id="vehiclesGrid">
+                <div class="empty-state large">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M5 17a2 2 0 1 0 4 0a2 2 0 0 0-4 0M15 17a2 2 0 1 0 4 0a2 2 0 0 0-4 0"/>
+                        <path d="M5 17V8l4-3 4 3v9"/>
+                    </svg>
+                    <h3>No tienes vehículos</h3>
+                    <p>Añade tu primer vehículo para empezar a gestionar sus gastos</p>
+                    <button class="btn btn-primary" onclick="document.getElementById('addVehicleBtn').click()">Añadir Vehículo</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Expenses Page -->
+        <section class="page" id="expensesPage">
+            <div class="page-header">
+                <div class="page-info">
+                    <h2>Historial de Gastos</h2>
+                    <p>Todos los gastos registrados de tus vehículos</p>
+                </div>
+                <button class="btn btn-primary" id="addExpenseBtnPage">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"/>
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                    Añadir Gasto
+                </button>
+            </div>
+            <div class="filters-bar">
+                <div class="filter-group">
+                    <label>Filtrar por vehículo:</label>
+                    <select id="filterVehicle" class="select">
+                        <option value="all">Todos los vehículos</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Filtrar por categoría:</label>
+                    <select id="filterCategory" class="select">
+                        <option value="all">Todas las categorías</option>
+                        <option value="oil">Aceite</option>
+                        <option value="tires">Ruedas</option>
+                        <option value="parts">Piezas</option>
+                        <option value="itv">ITV</option>
+                        <option value="insurance">Seguro</option>
+                        <option value="fuel">Combustible</option>
+                        <option value="maintenance">Mantenimiento General</option>
+                        <option value="other">Otros</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Ordenar por:</label>
+                    <select id="sortExpenses" class="select">
+                        <option value="date-desc">Más recientes</option>
+                        <option value="date-asc">Más antiguos</option>
+                        <option value="cost-desc">Mayor precio</option>
+                        <option value="cost-asc">Menor precio</option>
+                    </select>
+                </div>
+            </div>
+            <div class="expenses-table-container">
+                <table class="expenses-table">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Vehículo</th>
+                            <th>Categoría</th>
+                            <th>Descripción</th>
+                            <th>Km</th>
+                            <th>Importe</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="expensesTableBody">
+                        <tr class="empty-row">
+                            <td colspan="7">
+                                <div class="empty-state">
+                                    <p>No hay gastos registrados</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Reports Page -->
+        <section class="page" id="reportsPage">
+            <div class="page-header">
+                <div class="page-info">
+                    <h2>Informes y Estadísticas</h2>
+                    <p>Analiza tus gastos y mantenimientos</p>
+                </div>
+                <div class="date-range">
+                    <input type="date" id="reportStartDate" class="input">
+                    <span>a</span>
+                    <input type="date" id="reportEndDate" class="input">
+                    <button class="btn btn-secondary" id="generateReport">Generar</button>
+                </div>
+            </div>
+            
+            <div class="reports-grid">
+                <div class="report-card">
+                    <h3>Gastos por Categoría</h3>
+                    <div class="chart-container tall">
+                        <canvas id="categoryReportChart"></canvas>
+                    </div>
+                </div>
+                <div class="report-card">
+                    <h3>Gastos Mensuales</h3>
+                    <div class="chart-container tall">
+                        <canvas id="monthlyReportChart"></canvas>
+                    </div>
+                </div>
+                <div class="report-card">
+                    <h3>Resumen por Vehículo</h3>
+                    <div class="vehicle-summary" id="vehicleSummary">
+                        <div class="empty-state">
+                            <p>No hay datos disponibles</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="report-card">
+                    <h3>Costes por Kilómetro</h3>
+                    <div class="km-cost-summary" id="kmCostSummary">
+                        <div class="empty-state">
+                            <p>No hay datos disponibles</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Settings Page -->
+        <section class="page" id="settingsPage">
+            <div class="page-header">
+                <div class="page-info">
+                    <h2>Configuración</h2>
+                    <p>Personaliza tu aplicación</p>
+                </div>
+            </div>
+            
+            <div class="settings-sections">
+                <div class="settings-card">
+                    <h3>General</h3>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <label>Moneda</label>
+                            <p>Símbolo de moneda para los importes</p>
+                        </div>
+                        <select id="currencySetting" class="select">
+                            <option value="EUR">Euro (€)</option>
+                            <option value="USD">Dólar ($)</option>
+                            <option value="GBP">Libra (£)</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <label>Unidad de distancia</label>
+                            <p>Kilómetros o millas</p>
+                        </div>
+                        <select id="distanceSetting" class="select">
+                            <option value="km">Kilómetros (km)</option>
+                            <option value="mi">Millas (mi)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="settings-card">
+                    <h3>Intervalos de Mantenimiento</h3>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <label>Cambio de aceite</label>
+                            <p>Intervalo recomendado en km</p>
+                        </div>
+                        <input type="number" id="oilInterval" class="input short" value="15000">
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <label>Revisión de frenos</label>
+                            <p>Intervalo recomendado en km</p>
+                        </div>
+                        <input type="number" id="brakesInterval" class="input short" value="20000">
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <label>ITV</label>
+                            <p>Frecuencia de inspección (meses)</p>
+                        </div>
+                        <input type="number" id="itvInterval" class="input short" value="24">
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <label>Neumáticos</label>
+                            <p>Intervalo recomendado en km</p>
+                        </div>
+                        <input type="number" id="tiresInterval" class="input short" value="40000">
+                    </div>
+                </div>
+                
+                <div class="settings-card danger-zone">
+                    <h3>Zona de Peligro</h3>
+                    <p>Estas acciones son irreversibles</p>
+                    <button class="btn btn-danger" id="clearAllData">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"/>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                        </svg>
+                        Eliminar Todos los Datos
+                    </button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Add/Edit Vehicle Modal -->
+    <div class="modal" id="vehicleModal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="vehicleModalTitle">Añadir Vehículo</h2>
+                <button class="modal-close" onclick="closeVehicleModal()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            <form id="vehicleForm">
+                <input type="hidden" id="vehicleId">
+                <div class="form-group">
+                    <label for="vehicleMake">Marca *</label>
+                    <input type="text" id="vehicleMake" placeholder="Ej: Toyota" required>
+                </div>
+                <div class="form-group">
+                    <label for="vehicleModel">Modelo *</label>
+                    <input type="text" id="vehicleModel" placeholder="Ej: Corolla" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="vehicleYear">Año</label>
+                        <input type="number" id="vehicleYear" placeholder="2020" min="1900" max="2030">
+                    </div>
+                    <div class="form-group">
+                        <label for="vehiclePlate">Matrícula *</label>
+                        <input type="text" id="vehiclePlate" placeholder="1234ABC" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="vehicleMileage">Kilometraje Actual *</label>
+                    <input type="number" id="vehicleMileage" placeholder="50000" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label for="vehicleNotes">Notas</label>
+                    <textarea id="vehicleNotes" placeholder="Información adicional..."></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeVehicleModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add/Edit Expense Modal -->
+    <div class="modal" id="expenseModal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="expenseModalTitle">Registrar Gasto</h2>
+                <button class="modal-close" onclick="closeExpenseModal()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            <form id="expenseForm">
+                <input type="hidden" id="expenseId">
+                <div class="form-group">
+                    <label for="expenseVehicle">Vehículo *</label>
+                    <select id="expenseVehicle" required>
+                        <option value="">Seleccionar vehículo...</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="expenseDate">Fecha *</label>
+                        <input type="date" id="expenseDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="expenseMileage">Kilometraje</label>
+                        <input type="number" id="expenseMileage" placeholder="0">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="expenseCategory">Categoría *</label>
+                    <select id="expenseCategory" required>
+                        <option value="">Seleccionar categoría...</option>
+                        <option value="oil">🛢️ Cambio de Aceite</option>
+                        <option value="tires">🍘 Ruedas/Neumáticos</option>
+                        <option value="itv">📋 ITV</option>
+                        <option value="parts">🔧 Piezas/Repuestos</option>
+                        <option value="maintenance">🔨 Mantenimiento General</option>
+                        <option value="insurance">🛡️ Seguro</option>
+                        <option value="fuel">⛽ Combustible</option>
+                        <option value="other">📦 Otros</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="expenseDescription">Descripción *</label>
+                    <input type="text" id="expenseDescription" placeholder="Ej: Cambio de aceite Castrol Edge" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="expenseCost">Importe *</label>
+                        <input type="number" id="expenseCost" placeholder="0.00" step="0.01" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="expenseShop">Taller/Tienda</label>
+                        <input type="text" id="expenseShop" placeholder="Ej: Mecánico Juan">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="expenseNotes">Notas adicionales</label>
+                    <textarea id="expenseNotes" placeholder="Detalles adicionales..."></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeExpenseModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal" id="deleteModal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content small">
+            <div class="modal-header">
+                <h2>Confirmar Eliminación</h2>
+                <button class="modal-close" onclick="closeDeleteModal()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p id="deleteMessage">¿Estás seguro de que quieres eliminar este elemento?</p>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Eliminar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast">
+        <span class="toast-message"></span>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
