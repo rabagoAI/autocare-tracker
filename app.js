@@ -1034,6 +1034,7 @@ function renderSettings() {
     document.getElementById('brakesInterval').value = AppData.settings.brakesInterval;
     document.getElementById('itvInterval').value = AppData.settings.itvInterval;
     document.getElementById('tiresInterval').value = AppData.settings.tiresInterval;
+    updateLastBackupInfo(false);
 }
 
 function saveSettings() {
@@ -1064,6 +1065,140 @@ function clearAllData() {
     AppData.showToast('Todos los datos han sido eliminados', 'success');
     renderVehicles();
     updateDashboard();
+}
+
+// ============================================
+// EXPORT/IMPORT DATA
+// ============================================
+
+function exportData() {
+    const exportObj = {
+        version: '1.0',
+        exportDate: new Date().toISOString(),
+        appName: 'AutoCare Tracker',
+        data: {
+            vehicles: AppData.vehicles,
+            expenses: AppData.expenses
+        }
+    };
+
+    const dataStr = JSON.stringify(exportObj, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `autocare-backup-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    // Update last backup info
+    updateLastBackupInfo(true);
+
+    AppData.showToast('Datos exportados correctamente', 'success');
+}
+
+function importData(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const importObj = JSON.parse(e.target.result);
+
+            // Validate structure
+            if (!importObj.data || !Array.isArray(importObj.data.vehicles) || !Array.isArray(importObj.data.expenses)) {
+                throw new Error('Archivo JSON inválido');
+            }
+
+            // Show confirmation dialog
+            const vehicleCount = importObj.data.vehicles.length;
+            const expenseCount = importObj.data.expenses.length;
+            const currentVehicles = AppData.vehicles.length;
+            const currentExpenses = AppData.expenses.length;
+
+            const confirmMsg = `¿Estás seguro de importar estos datos?\n\n` +
+                `📁 Archivo: ${vehicleCount} vehículos, ${expenseCount} gastos\n` +
+                `💾 Actual: ${currentVehicles} vehículos, ${currentExpenses} gastos\n\n` +
+                `⚠️ Esta acción sobrescribirá tus datos actuales.`;
+
+            if (confirm(confirmMsg)) {
+                // Merge vehicles (avoid duplicates by plate)
+                const existingPlates = new Set(AppData.vehicles.map(v => v.plate));
+                const newVehicles = importObj.data.vehicles.filter(v => !existingPlates.has(v.plate));
+                AppData.vehicles = [...AppData.vehicles, ...newVehicles];
+
+                // Replace expenses (or merge by ID)
+                const existingIds = new Set(AppData.expenses.map(e => e.id));
+                const newExpenses = importObj.data.expenses.filter(e => !existingIds.has(e.id));
+                AppData.expenses = [...AppData.expenses, ...newExpenses];
+
+                AppData.saveData();
+                updateLastBackupInfo(false, importObj.exportDate);
+
+                AppData.showToast(`Importados ${newVehicles.length} vehículos y ${newExpenses.length} gastos`, 'success');
+                renderVehicles();
+                updateDashboard();
+            }
+        } catch (error) {
+            console.error('Import error:', error);
+            AppData.showToast('Error al importar: archivo inválido', 'error');
+        }
+
+        // Reset file input
+        event.target.value = '';
+    };
+
+    reader.readAsText(file);
+}
+
+function updateLastBackupInfo(isExport, dateStr = null) {
+    const infoEl = document.getElementById('lastBackupInfo');
+    const now = new Date().toLocaleDateString('es-ES', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+
+    if (isExport) {
+        infoEl.innerHTML = `✅ Última exportación: ${now}`;
+        infoEl.className = 'backup-info success';
+    } else if (dateStr) {
+        const importDate = new Date(dateStr).toLocaleDateString('es-ES', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        infoEl.innerHTML = `📥 Última importación: ${importDate}`;
+        infoEl.className = 'backup-info success';
+    } else {
+        // Check for existing backup info
+        const lastBackup = localStorage.getItem('autocare_lastBackup');
+        if (lastBackup) {
+            const backupDate = new Date(lastBackup).toLocaleDateString('es-ES', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            infoEl.innerHTML = `📁 Última copia: ${backupDate}`;
+            infoEl.className = 'backup-info';
+        } else {
+            infoEl.innerHTML = '';
+        }
+    }
+
+    if (isExport || dateStr) {
+        localStorage.setItem('autocare_lastBackup', new Date().toISOString());
+    }
 }
 
 // ============================================
@@ -1171,6 +1306,11 @@ AppData.setupEventListeners = function() {
     });
 
     document.getElementById('clearAllData').addEventListener('click', confirmClearAllData);
+
+    // Export/Import data
+    document.getElementById('exportData').addEventListener('click', exportData);
+    document.getElementById('importData').addEventListener('change', importData);
+    updateLastBackupInfo(false); // Check for existing backup info
 
     // Report date range
     document.getElementById('generateReport')?.addEventListener('click', () => {

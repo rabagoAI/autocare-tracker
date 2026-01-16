@@ -1024,6 +1024,50 @@ body {
     color: var(--danger);
 }
 
+/* Data Export/Import Styles */
+.data-controls {
+    display: flex;
+    gap: 12px;
+    margin: 20px 0;
+    flex-wrap: wrap;
+}
+
+.data-controls .btn {
+    flex: 1;
+    min-width: 150px;
+    justify-content: center;
+}
+
+.import-label {
+    cursor: pointer;
+    display: inline-flex !important;
+}
+
+.import-label:hover {
+    background: var(--primary-dark) !important;
+}
+
+.help-text {
+    font-size: 0.8125rem;
+    color: var(--gray-500);
+    margin-top: 8px;
+    line-height: 1.5;
+}
+
+.backup-info {
+    margin-top: 16px;
+    padding: 12px;
+    background: var(--gray-50);
+    border-radius: var(--radius);
+    font-size: 0.875rem;
+    color: var(--gray-600);
+}
+
+.backup-info.success {
+    background: #ECFDF5;
+    color: #059669;
+}
+
 /* Modal */
 .modal {
     display: none;

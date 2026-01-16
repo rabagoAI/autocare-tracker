@@ -419,6 +419,32 @@
                     </div>
                 </div>
                 
+                <div class="settings-card">
+                    <h3>Copias de Seguridad</h3>
+                    <p>Guarda tus datos en un archivo y restáuralos cuando lo necesites</p>
+                    <div class="data-controls">
+                        <button class="btn btn-secondary" id="exportData">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7 10 12 15 17 10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            Exportar Datos
+                        </button>
+                        <label class="btn btn-primary import-label">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="17 8 12 3 7 8"/>
+                                <line x1="12" y1="3" x2="12" y2="15"/>
+                            </svg>
+                            Importar Datos
+                            <input type="file" id="importData" accept=".json" style="display: none;">
+                        </label>
+                    </div>
+                    <p class="help-text">Los archivos se guardan como JSON. Sube el archivo para restaurar tus vehículos y gastos.</p>
+                    <div id="lastBackupInfo" class="backup-info"></div>
+                </div>
+                
                 <div class="settings-card danger-zone">
                     <h3>Zona de Peligro</h3>
                     <p>Estas acciones son irreversibles</p>
