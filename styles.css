@@ -610,6 +610,12 @@ body {
 }
 
 /* Page Header */
+.header-buttons {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
 .page-header {
     display: flex;
     align-items: flex-start;
@@ -1255,6 +1261,11 @@ form {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 16px;
+}
+
+.form-hint {
+    margin-top: -8px;
+    margin-bottom: 16px;
 }
 
 .form-actions {

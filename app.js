@@ -21,6 +21,7 @@ const AppData = {
         this.setupEventListeners();
         renderCurrentPage();
         updateDashboard();
+        Motion.enterPage(document.querySelector('.page.active'));
     },
 
     loadData() {
@@ -119,6 +120,7 @@ function normalizeVehicle(v) {
         plate: String(v.plate ?? '').trim().toUpperCase(),
         mileage: mileage,
         initialMileage: Number.isNaN(initialMileage) ? null : initialMileage,
+        registrationDate: isValidDate(v.registrationDate) ? v.registrationDate : '',
         notes: String(v.notes ?? '').trim()
     };
 }
@@ -246,6 +248,7 @@ function navigateTo(page) {
 
     // Render page content
     renderCurrentPage();
+    Motion.enterPage(targetPage);
 }
 
 // ============================================
@@ -267,10 +270,11 @@ function updateDashboard() {
 
     const alerts = calculateAlerts();
 
-    document.getElementById('totalVehicles').textContent = totalVehicles;
-    document.getElementById('totalExpenses').textContent = AppData.formatCurrency(totalExpenses);
-    document.getElementById('monthlyExpenses').textContent = AppData.formatCurrency(monthlyExpenses);
-    document.getElementById('pendingAlerts').textContent = alerts.length;
+    const formatMoney = v => AppData.formatCurrency(v);
+    Motion.countUp(document.getElementById('totalVehicles'), totalVehicles);
+    Motion.countUp(document.getElementById('totalExpenses'), totalExpenses, formatMoney);
+    Motion.countUp(document.getElementById('monthlyExpenses'), monthlyExpenses, formatMoney);
+    Motion.countUp(document.getElementById('pendingAlerts'), alerts.length);
 
     renderRecentActivity();
     renderAlerts(alerts);
@@ -307,14 +311,10 @@ function calculateAlerts() {
         }
 
         // ITV alert
-        const lastITV = vehicleExpenses.find(e => e.category === 'itv');
-        if (lastITV) {
-            const itvDate = new Date(lastITV.date);
-            const nextITV = new Date(itvDate);
-            nextITV.setMonth(nextITV.getMonth() + AppData.settings.itvInterval);
-            
+        const nextITV = getNextItvDate(vehicle, vehicleExpenses.find(e => e.category === 'itv'));
+        if (nextITV) {
             const daysUntil = Math.ceil((nextITV - new Date()) / (1000 * 60 * 60 * 24));
-            
+
             if (daysUntil <= 60) {
                 const status = daysUntil <= 0 ? 'danger' : 'warning';
                 alerts.push({
@@ -353,6 +353,43 @@ function calculateAlerts() {
     });
 
     return alerts.sort((a, b) => a.priority - b.priority);
+}
+
+function parseLocalDate(value) {
+    const [year, month, day] = value.split('-').map(Number);
+    return new Date(year, month - 1, day);
+}
+
+function addMonths(date, months) {
+    const result = new Date(date);
+    result.setMonth(result.getMonth() + months);
+    return result;
+}
+
+// Spanish ITV for cars: first at 4 years, every 2 years until 10, then yearly.
+// Without a registration date, the interval from Settings is used after the last ITV.
+function getNextItvDate(vehicle, lastITV) {
+    const registration = vehicle.registrationDate ? parseLocalDate(vehicle.registrationDate) : null;
+
+    if (lastITV) {
+        const lastDate = parseLocalDate(lastITV.date);
+        if (!registration) {
+            return addMonths(lastDate, AppData.settings.itvInterval);
+        }
+        const ageAtLastITV = (lastDate - registration) / (1000 * 60 * 60 * 24 * 365.25);
+        return addMonths(lastDate, ageAtLastITV >= 10 ? 12 : 24);
+    }
+
+    if (!registration) return null;
+
+    // No ITV recorded: the next legal date, keeping one that expired in the last
+    // 3 months so it shows as overdue
+    const limit = addMonths(new Date(), -3);
+    for (let years = 4; years < 100; years += years < 10 ? 2 : 1) {
+        const due = addMonths(registration, years * 12);
+        if (due >= limit) return due;
+    }
+    return null;
 }
 
 function renderRecentActivity() {
@@ -535,16 +572,22 @@ function renderVehicleChart() {
 // VEHICLES
 // ============================================
 
+const ROAD_SCENE = `
+    <div class="road-scene" aria-hidden="true">
+        <div class="road"></div>
+        <div class="car">🚗</div>
+        <div class="puff"></div>
+        <div class="puff"></div>
+        <div class="puff"></div>
+    </div>`;
+
 function renderVehicles() {
     const container = document.getElementById('vehiclesGrid');
 
     if (AppData.vehicles.length === 0) {
         container.innerHTML = `
             <div class="empty-state large">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <path d="M5 17a2 2 0 1 0 4 0a2 2 0 0 0-4 0M15 17a2 2 0 1 0 4 0a2 2 0 0 0-4 0"/>
-                    <path d="M5 17V8l4-3 4 3v9"/>
-                </svg>
+                ${ROAD_SCENE}
                 <h3>No tienes vehículos</h3>
                 <p>Añade tu primer vehículo para empezar a gestionar sus gastos</p>
                 <button class="btn btn-primary" onclick="openVehicleModal()">Añadir Vehículo</button>
@@ -566,7 +609,7 @@ function renderVehicles() {
         const vehicleIcon = getVehicleEmoji(vehicle.make);
 
         return `
-            <div class="vehicle-card">
+            <div class="vehicle-card" data-id="${vehicle.id}">
                 <div class="vehicle-header">
                     <div class="vehicle-image">${vehicleIcon}</div>
                     <div class="vehicle-info">
@@ -628,6 +671,7 @@ function openVehicleModal(vehicleId = null) {
             document.getElementById('vehicleYear').value = vehicle.year || '';
             document.getElementById('vehiclePlate').value = vehicle.plate;
             document.getElementById('vehicleMileage').value = vehicle.mileage;
+            document.getElementById('vehicleRegistration').value = vehicle.registrationDate || '';
             document.getElementById('vehicleNotes').value = vehicle.notes || '';
         }
     } else {
@@ -639,7 +683,7 @@ function openVehicleModal(vehicleId = null) {
 }
 
 function closeVehicleModal() {
-    document.getElementById('vehicleModal').classList.remove('active');
+    Motion.closeModal(document.getElementById('vehicleModal'));
 }
 
 function saveVehicle(e) {
@@ -652,6 +696,7 @@ function saveVehicle(e) {
         year: parseInt(document.getElementById('vehicleYear').value) || null,
         plate: document.getElementById('vehiclePlate').value.trim().toUpperCase(),
         mileage: parseInt(document.getElementById('vehicleMileage').value) || 0,
+        registrationDate: document.getElementById('vehicleRegistration').value,
         notes: document.getElementById('vehicleNotes').value.trim()
     };
 
@@ -671,6 +716,8 @@ function saveVehicle(e) {
         };
         AppData.vehicles.push(newVehicle);
         AppData.showToast('Vehículo añadido correctamente', 'success');
+        Motion.driveBy(getVehicleEmoji(newVehicle.make));
+        Motion.confetti(null, AppData.vehicles.length === 1 ? 120 : 60);
     }
 
     AppData.saveData();
@@ -689,11 +736,12 @@ function confirmDeleteVehicle(vehicleId) {
     document.getElementById('deleteModal').classList.add('active');
 }
 
-function deleteVehicle(vehicleId) {
+async function deleteVehicle(vehicleId) {
+    closeDeleteModal();
+    await Motion.leave(document.querySelector(`.vehicle-card[data-id="${vehicleId}"]`));
     AppData.vehicles = AppData.vehicles.filter(v => v.id !== vehicleId);
     AppData.expenses = AppData.expenses.filter(e => e.vehicleId !== vehicleId);
     AppData.saveData();
-    closeDeleteModal();
     AppData.showToast('Vehículo eliminado correctamente', 'success');
     renderVehicles();
     updateDashboard();
@@ -703,19 +751,11 @@ function deleteVehicle(vehicleId) {
 // EXPENSES
 // ============================================
 
-function renderExpenses() {
+// Expenses shown in the table, with its filters and sort order applied
+function getFilteredExpenses() {
     const vehicleFilter = document.getElementById('filterVehicle')?.value || 'all';
     const categoryFilter = document.getElementById('filterCategory')?.value || 'all';
     const sortValue = document.getElementById('sortExpenses')?.value || 'date-desc';
-
-    // Update vehicle filter options
-    const vehicleSelect = document.getElementById('filterVehicle');
-    if (vehicleSelect) {
-        const currentValue = vehicleSelect.value;
-        vehicleSelect.innerHTML = '<option value="all">Todos los vehículos</option>' +
-            AppData.vehicles.map(v => `<option value="${v.id}">${vehicleName(v)}</option>`).join('');
-        vehicleSelect.value = currentValue;
-    }
 
     let filteredExpenses = [...AppData.expenses];
 
@@ -743,6 +783,21 @@ function renderExpenses() {
             break;
     }
 
+    return filteredExpenses;
+}
+
+function renderExpenses() {
+    // Update vehicle filter options
+    const vehicleSelect = document.getElementById('filterVehicle');
+    if (vehicleSelect) {
+        const currentValue = vehicleSelect.value;
+        vehicleSelect.innerHTML = '<option value="all">Todos los vehículos</option>' +
+            AppData.vehicles.map(v => `<option value="${v.id}">${vehicleName(v)}</option>`).join('');
+        vehicleSelect.value = AppData.vehicles.some(v => v.id === currentValue) ? currentValue : 'all';
+    }
+
+    const filteredExpenses = getFilteredExpenses();
+
     const tbody = document.getElementById('expensesTableBody');
 
     if (filteredExpenses.length === 0) {
@@ -763,7 +818,7 @@ function renderExpenses() {
         const icon = getCategoryIcon(expense.category);
 
         return `
-            <tr>
+            <tr data-id="${expense.id}">
                 <td>${AppData.formatDate(expense.date)}</td>
                 <td>${vehicleName(vehicle)}</td>
                 <td><span class="category-badge ${expense.category}">${icon} ${getCategoryLabel(expense.category)}</span></td>
@@ -833,7 +888,7 @@ function openExpenseModal(expenseId = null, preselectedVehicleId = null) {
 }
 
 function closeExpenseModal() {
-    document.getElementById('expenseModal').classList.remove('active');
+    Motion.closeModal(document.getElementById('expenseModal'));
 }
 
 function saveExpense(e) {
@@ -877,6 +932,7 @@ function saveExpense(e) {
         };
         AppData.expenses.push(newExpense);
         AppData.showToast('Gasto registrado correctamente', 'success');
+        Motion.emojiBurst(getCategoryIcon(newExpense.category), document.getElementById('addExpenseBtn'));
     }
 
     AppData.saveData();
@@ -898,17 +954,18 @@ function confirmDeleteExpense(expenseId) {
     document.getElementById('deleteModal').classList.add('active');
 }
 
-function deleteExpense(expenseId) {
+async function deleteExpense(expenseId) {
+    closeDeleteModal();
+    await Motion.leave(document.querySelector(`tr[data-id="${expenseId}"]`));
     AppData.expenses = AppData.expenses.filter(e => e.id !== expenseId);
     AppData.saveData();
-    closeDeleteModal();
     AppData.showToast('Gasto eliminado correctamente', 'success');
     renderExpenses();
     updateDashboard();
 }
 
 function closeDeleteModal() {
-    document.getElementById('deleteModal').classList.remove('active');
+    Motion.closeModal(document.getElementById('deleteModal'));
 }
 
 // ============================================
@@ -1292,6 +1349,50 @@ function importData(event) {
     reader.readAsText(file);
 }
 
+// CSV for Excel in Spanish: semicolon separator, decimal comma and BOM for the accents
+function exportExpensesCsv() {
+    const expenses = getFilteredExpenses();
+    if (expenses.length === 0) {
+        AppData.showToast('No hay gastos que exportar', 'error');
+        return;
+    }
+
+    const cell = value => {
+        const text = String(value ?? '');
+        return /[";\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    };
+    const decimal = value => (parseFloat(value) || 0).toFixed(2).replace('.', ',');
+
+    const header = ['Fecha', 'Vehículo', 'Matrícula', 'Categoría', 'Descripción',
+        `Kilometraje (${AppData.settings.distanceUnit})`, `Coste (${AppData.settings.currency})`, 'Taller', 'Notas'];
+    const rows = expenses.map(e => {
+        const vehicle = AppData.vehicles.find(v => v.id === e.vehicleId);
+        return [
+            AppData.formatDate(e.date),
+            vehicle ? `${vehicle.make} ${vehicle.model}` : '',
+            vehicle ? vehicle.plate : '',
+            getCategoryLabel(e.category),
+            e.description,
+            e.mileage || '',
+            decimal(e.cost),
+            e.shop,
+            e.notes
+        ];
+    });
+
+    const csv = '\uFEFF' + [header, ...rows].map(row => row.map(cell).join(';')).join('\r\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `autocare-gastos-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    AppData.showToast(`Exportados ${expenses.length} gastos a CSV`, 'success');
+}
+
 function updateLastBackupInfo(isExport, dateStr = null) {
     const infoEl = document.getElementById('lastBackupInfo');
     const now = new Date().toLocaleDateString('es-ES', {
@@ -1371,7 +1472,7 @@ function openPrivacyModal() {
 }
 
 function closePrivacyModal() {
-    document.getElementById('privacyModal').classList.remove('active');
+    Motion.closeModal(document.getElementById('privacyModal'));
 }
 
 function getVehicleEmoji(make) {
@@ -1405,6 +1506,7 @@ AppData.showToast = function(message, type = 'info') {
     }
     
     toastMessage.textContent = message;
+    toast.querySelector('.toast-icon').textContent = { success: '✅', error: '⚠️' }[type] || 'ℹ️';
     toast.classList.add('show');
 
     setTimeout(() => {
@@ -1428,6 +1530,7 @@ AppData.setupEventListeners = function() {
     document.getElementById('expenseForm').addEventListener('submit', saveExpense);
     document.getElementById('addExpenseBtn').addEventListener('click', () => openExpenseModal());
     document.getElementById('addExpenseBtnPage').addEventListener('click', () => openExpenseModal());
+    document.getElementById('exportCsvBtn').addEventListener('click', exportExpensesCsv);
 
     // Expense filters
     document.getElementById('filterVehicle')?.addEventListener('change', renderExpenses);
@@ -1467,14 +1570,14 @@ AppData.setupEventListeners = function() {
     // Modal overlays
     document.querySelectorAll('.modal-overlay').forEach(overlay => {
         overlay.addEventListener('click', () => {
-            document.querySelectorAll('.modal').forEach(modal => modal.classList.remove('active'));
+            document.querySelectorAll('.modal').forEach(modal => Motion.closeModal(modal));
         });
     });
 
     // Close modals on Escape key
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            document.querySelectorAll('.modal').forEach(modal => modal.classList.remove('active'));
+            document.querySelectorAll('.modal').forEach(modal => Motion.closeModal(modal));
         }
     });
 };
@@ -1486,3 +1589,10 @@ AppData.setupEventListeners = function() {
 document.addEventListener('DOMContentLoaded', () => {
     AppData.init();
 });
+
+// Offline support (only when served over http/https, not from file://)
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(error => console.warn('Service worker:', error));
+    });
+}

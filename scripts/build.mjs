@@ -1,7 +1,7 @@
 // Copies the static app into dist/ (the folder Vercel publishes)
 import { cpSync, rmSync, mkdirSync } from 'node:fs';
 
-const files = ['index.html', 'app.js', 'styles.css', 'vendor'];
+const files = ['index.html', 'app.js', 'motion.js', 'styles.css', 'motion.css', 'sw.js', 'manifest.webmanifest', 'icons', 'vendor'];
 
 rmSync('dist', { recursive: true, force: true });
 mkdirSync('dist');

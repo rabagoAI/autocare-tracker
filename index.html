@@ -5,8 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
     <title>AutoCare Tracker - Gestión de Gastos Vehiculares</title>
+    <meta name="theme-color" content="#2563EB">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
     <link rel="stylesheet" href="vendor/fonts/inter.css">
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="motion.css">
 </head>
 <body>
     <!-- Sidebar Navigation -->
@@ -224,10 +229,13 @@
             </div>
             <div class="vehicles-grid" id="vehiclesGrid">
                 <div class="empty-state large">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <path d="M5 17a2 2 0 1 0 4 0a2 2 0 0 0-4 0M15 17a2 2 0 1 0 4 0a2 2 0 0 0-4 0"/>
-                        <path d="M5 17V8l4-3 4 3v9"/>
-                    </svg>
+                    <div class="road-scene" aria-hidden="true">
+                        <div class="road"></div>
+                        <div class="car">🚗</div>
+                        <div class="puff"></div>
+                        <div class="puff"></div>
+                        <div class="puff"></div>
+                    </div>
                     <h3>No tienes vehículos</h3>
                     <p>Añade tu primer vehículo para empezar a gestionar sus gastos</p>
                     <button class="btn btn-primary" onclick="document.getElementById('addVehicleBtn').click()">Añadir Vehículo</button>
@@ -242,6 +250,16 @@
                     <h2>Historial de Gastos</h2>
                     <p>Todos los gastos registrados de tus vehículos</p>
                 </div>
+                <div class="header-buttons">
+                <button class="btn btn-secondary" id="exportCsvBtn" title="Exporta los gastos filtrados para abrirlos en Excel">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <line x1="8" y1="13" x2="16" y2="13"/>
+                        <line x1="8" y1="17" x2="16" y2="17"/>
+                    </svg>
+                    Exportar CSV
+                </button>
                 <button class="btn btn-primary" id="addExpenseBtnPage">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="12" y1="5" x2="12" y2="19"/>
@@ -249,6 +267,7 @@
                     </svg>
                     Añadir Gasto
                 </button>
+                </div>
             </div>
             <div class="filters-bar">
                 <div class="filter-group">
@@ -409,7 +428,7 @@
                     <div class="setting-item">
                         <div class="setting-info">
                             <label>ITV</label>
-                            <p>Frecuencia de inspección (meses)</p>
+                            <p>Frecuencia (meses) si el vehículo no tiene fecha de matriculación</p>
                         </div>
                         <input type="number" id="itvInterval" class="input short" value="24">
                     </div>
@@ -502,10 +521,17 @@
                         <input type="text" id="vehiclePlate" placeholder="1234ABC" required>
                     </div>
                 </div>
-                <div class="form-group">
-                    <label for="vehicleMileage">Kilometraje Actual *</label>
-                    <input type="number" id="vehicleMileage" placeholder="50000" min="0" required>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="vehicleMileage">Kilometraje Actual *</label>
+                        <input type="number" id="vehicleMileage" placeholder="50000" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="vehicleRegistration">Fecha de matriculación</label>
+                        <input type="date" id="vehicleRegistration">
+                    </div>
                 </div>
+                <p class="help-text form-hint">Con la fecha de matriculación avisamos de la ITV aunque no hayas registrado ninguna: la primera a los 4 años, después cada 2 hasta los 10 y luego cada año.</p>
                 <div class="form-group">
                     <label for="vehicleNotes">Notas</label>
                     <textarea id="vehicleNotes" placeholder="Información adicional..."></textarea>
@@ -636,6 +662,7 @@
 
                 <h3>Cookies y analítica</h3>
                 <p>Esta aplicación no usa cookies, ni analítica, ni publicidad, ni servicios de terceros. Las fuentes y librerías se sirven desde la propia app.</p>
+                <p>Para funcionar sin conexión, el navegador guarda en caché los archivos de la aplicación (no tus datos).</p>
 
                 <h3>Alojamiento</h3>
                 <p>La web está alojada en Vercel, que puede registrar datos técnicos de conexión (como la dirección IP) para servir la página y mantener su seguridad.</p>
@@ -651,10 +678,12 @@
 
     <!-- Toast Notification -->
     <div class="toast" id="toast">
+        <span class="toast-icon" aria-hidden="true"></span>
         <span class="toast-message"></span>
     </div>
 
     <script src="vendor/chart.umd.4.4.7.js"></script>
+    <script src="motion.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
