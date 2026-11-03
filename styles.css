@@ -182,6 +182,7 @@ body {
 /* Main Content */
 .main-content {
     flex: 1;
+    min-width: 0;
     margin-left: 260px;
     min-height: 100vh;
     display: flex;
@@ -400,6 +401,7 @@ body {
 }
 
 .chart-card {
+    min-width: 0;
     background: var(--white);
     border-radius: var(--radius-md);
     padding: 24px;
@@ -448,6 +450,7 @@ body {
 
 .activity-card,
 .alerts-card {
+    min-width: 0;
     background: var(--white);
     border-radius: var(--radius-md);
     padding: 24px;
@@ -1198,6 +1201,21 @@ body {
     flex-wrap: wrap;
 }
 
+@media (max-width: 480px) {
+    /* Header button shows only the icon, so the page title fits */
+    #addExpenseBtn {
+        width: 44px;
+        height: 44px;
+        padding: 0;
+        justify-content: center;
+        border-radius: 50%;
+    }
+
+    #addExpenseBtn .btn-label {
+        display: none;
+    }
+}
+
 @media (max-width: 640px) {
     .backup-reminder {
         flex-wrap: wrap;
@@ -1515,12 +1533,119 @@ form {
         grid-template-columns: 1fr;
     }
     
+    /* Expenses: each row becomes a card, no horizontal scroll */
     .expenses-table-container {
-        overflow-x: auto;
+        background: transparent;
+        box-shadow: none;
+        overflow: visible;
     }
-    
-    .expenses-table {
-        min-width: 700px;
+
+    .expenses-table thead {
+        display: none;
+    }
+
+    .expenses-table,
+    .expenses-table tbody {
+        display: block;
+    }
+
+    .expenses-table tbody tr {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        grid-template-areas:
+            "category category cost"
+            "desc desc desc"
+            "vehicle vehicle actions"
+            "date km actions";
+        align-items: center;
+        column-gap: 10px;
+        row-gap: 8px;
+        margin-bottom: 12px;
+        padding: 14px 16px;
+        background: var(--white);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow);
+    }
+
+    .expenses-table tbody tr:hover {
+        background: var(--white);
+    }
+
+    .expenses-table td {
+        padding: 0;
+        border: none;
+        min-width: 0;
+    }
+
+    .expenses-table .col-category { grid-area: category; }
+    .expenses-table .col-desc { grid-area: desc; }
+    .expenses-table .col-date { grid-area: date; }
+    .expenses-table .col-vehicle { grid-area: vehicle; }
+    .expenses-table .col-km { grid-area: km; }
+    .expenses-table .col-actions { grid-area: actions; }
+
+    .expenses-table .col-cost {
+        grid-area: cost;
+        justify-self: end;
+        font-size: 1.0625rem;
+    }
+
+    .expenses-table .col-desc {
+        font-size: 0.9375rem;
+        font-weight: 500;
+        color: var(--gray-900);
+        overflow-wrap: anywhere;
+    }
+
+    .expenses-table .col-date,
+    .expenses-table .col-vehicle,
+    .expenses-table .col-km {
+        font-size: 0.75rem;
+        color: var(--gray-500);
+        white-space: nowrap;
+    }
+
+    .expenses-table .col-vehicle {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: var(--gray-700);
+        font-weight: 500;
+    }
+
+    .expenses-table .col-vehicle::before {
+        content: '🚗 ';
+    }
+
+    .expenses-table .col-km::before {
+        content: '· ';
+    }
+
+    .expenses-table .col-km.is-empty {
+        display: none;
+    }
+
+    .expenses-table .col-actions {
+        align-self: end;
+        justify-self: end;
+    }
+
+    .expenses-table .category-badge {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .expenses-table .action-buttons {
+        gap: 4px;
+    }
+
+    .expenses-table .empty-row {
+        display: block;
+    }
+
+    .expenses-table .empty-row td {
+        display: block;
+        padding: 32px 16px;
     }
     
     .header {
@@ -1529,6 +1654,17 @@ form {
     
     .header-title h1 {
         font-size: 1.25rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .header-title {
+        min-width: 0;
+    }
+
+    .header-title p {
+        display: none;
     }
     
     .date-range {

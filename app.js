@@ -823,13 +823,13 @@ function renderExpenses() {
 
         return `
             <tr data-id="${expense.id}">
-                <td>${AppData.formatDate(expense.date)}</td>
-                <td>${vehicleName(vehicle)}</td>
-                <td><span class="category-badge ${expense.category}">${icon} ${getCategoryLabel(expense.category)}</span></td>
-                <td>${escapeHtml(expense.description)}</td>
-                <td>${AppData.formatNumber(expense.mileage || 0)}</td>
-                <td class="cost">${AppData.formatCurrency(expense.cost)}</td>
-                <td>
+                <td class="col-date">${AppData.formatDate(expense.date)}</td>
+                <td class="col-vehicle">${vehicleName(vehicle)}</td>
+                <td class="col-category"><span class="category-badge ${expense.category}">${icon} ${getCategoryLabel(expense.category)}</span></td>
+                <td class="col-desc">${escapeHtml(expense.description)}</td>
+                <td class="col-km${expense.mileage ? '' : ' is-empty'}">${expense.mileage ? `${AppData.formatNumber(expense.mileage)} ${AppData.settings.distanceUnit}` : '—'}</td>
+                <td class="cost col-cost">${AppData.formatCurrency(expense.cost)}</td>
+                <td class="col-actions">
                     <div class="action-buttons">
                         <button class="action-btn edit" onclick="openExpenseModal('${expense.id}')" title="Editar">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

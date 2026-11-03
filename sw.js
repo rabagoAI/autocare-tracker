@@ -1,6 +1,6 @@
 // AutoCare Tracker - Service worker: the app works offline.
 // Only caches the app's own files; user data stays in localStorage.
-const CACHE = 'autocare-v1.3.0';
+const CACHE = 'autocare-v1.3.1';
 const APP_SHELL = [
     './',
     'index.html',
@@ -31,13 +31,14 @@ self.addEventListener('activate', event => {
     );
 });
 
-// Network first, so a new deploy is seen right away; cache when offline
+// Network first, so a new deploy is seen right away; cache when offline.
+// 'no-cache' revalidates with the server instead of trusting the HTTP cache.
 self.addEventListener('fetch', event => {
     const { request } = event;
     if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
 
     event.respondWith(
-        fetch(request)
+        fetch(request, { cache: 'no-cache' })
             .then(response => {
                 if (response.ok) {
                     const copy = response.clone();
