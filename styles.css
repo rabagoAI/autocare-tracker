@@ -128,6 +128,23 @@ body {
     border-top: 1px solid var(--gray-100);
 }
 
+.privacy-note {
+    margin-top: 12px;
+    font-size: 0.75rem;
+    color: var(--gray-500);
+    line-height: 1.5;
+}
+
+.link-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: var(--primary, #2563EB);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
 .user-info {
     display: flex;
     align-items: center;
@@ -809,6 +826,11 @@ body {
     color: #4F46E5;
 }
 
+.category-badge.brakes {
+    background: #FCE7F3;
+    color: #DB2777;
+}
+
 .category-badge.itv {
     background: #D1FAE5;
     color: #059669;
@@ -1166,6 +1188,25 @@ body {
 .modal-body p {
     color: var(--gray-600);
     line-height: 1.6;
+}
+
+.privacy-body {
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.privacy-body h3 {
+    font-size: 0.9375rem;
+    color: var(--gray-900);
+    margin: 16px 0 6px;
+}
+
+.privacy-body h3:first-child {
+    margin-top: 0;
+}
+
+.privacy-body p + p {
+    margin-top: 8px;
 }
 
 /* Forms */

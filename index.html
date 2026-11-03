@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
     <title>AutoCare Tracker - Gestión de Gastos Vehiculares</title>
+    <link rel="stylesheet" href="vendor/fonts/inter.css">
     <link rel="stylesheet" href="styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <!-- Sidebar Navigation -->
@@ -67,6 +68,7 @@
                     <span class="user-role">Propietario</span>
                 </div>
             </div>
+            <p class="privacy-note">🔒 Tus datos se guardan solo en este navegador. <button type="button" class="link-btn" onclick="openPrivacyModal()">Privacidad</button></p>
         </div>
     </aside>
 
@@ -261,6 +263,7 @@
                         <option value="all">Todas las categorías</option>
                         <option value="oil">Aceite</option>
                         <option value="tires">Ruedas</option>
+                        <option value="brakes">Frenos</option>
                         <option value="parts">Piezas</option>
                         <option value="itv">ITV</option>
                         <option value="insurance">Seguro</option>
@@ -441,10 +444,16 @@
                             <input type="file" id="importData" accept=".json" style="display: none;">
                         </label>
                     </div>
-                    <p class="help-text">Los archivos se guardan como JSON. Sube el archivo para restaurar tus vehículos y gastos.</p>
+                    <p class="help-text">Los archivos se guardan como JSON. Sube el archivo para restaurar tus vehículos y gastos: se combinan con los que ya tengas, sin borrar nada.</p>
                     <div id="lastBackupInfo" class="backup-info"></div>
                 </div>
                 
+                <div class="settings-card">
+                    <h3>Privacidad</h3>
+                    <p>Tus vehículos y gastos se guardan solo en este navegador. No usamos cookies ni herramientas de analítica.</p>
+                    <button type="button" class="btn btn-secondary" onclick="openPrivacyModal()">Ver información de privacidad</button>
+                </div>
+
                 <div class="settings-card danger-zone">
                     <h3>Zona de Peligro</h3>
                     <p>Estas acciones son irreversibles</p>
@@ -545,7 +554,8 @@
                     <select id="expenseCategory" required>
                         <option value="">Seleccionar categoría...</option>
                         <option value="oil">🛢️ Cambio de Aceite</option>
-                        <option value="tires">🍘 Ruedas/Neumáticos</option>
+                        <option value="tires">🛞 Ruedas/Neumáticos</option>
+                        <option value="brakes">🛑 Frenos</option>
                         <option value="itv">📋 ITV</option>
                         <option value="parts">🔧 Piezas/Repuestos</option>
                         <option value="maintenance">🔨 Mantenimiento General</option>
@@ -603,12 +613,48 @@
         </div>
     </div>
 
+    <!-- Privacy Modal -->
+    <div class="modal" id="privacyModal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Privacidad</h2>
+                <button class="modal-close" onclick="closePrivacyModal()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body privacy-body">
+                <h3>¿Dónde se guardan tus datos?</h3>
+                <p>Los vehículos, gastos y la configuración se guardan únicamente en el almacenamiento local (<code>localStorage</code>) de este navegador. No se envían a ningún servidor ni los ve nadie más.</p>
+                <p>Por eso, si cambias de navegador o de dispositivo, o borras los datos de navegación, no los verás. Para llevarlos de un sitio a otro usa <strong>Exportar</strong> e <strong>Importar</strong> en Configuración.</p>
+
+                <h3>Copias de seguridad</h3>
+                <p>Al exportar se descarga un archivo JSON en tu dispositivo. Si lo guardas en Google Drive u otra nube, ese archivo queda sujeto a las condiciones de ese servicio.</p>
+
+                <h3>Cookies y analítica</h3>
+                <p>Esta aplicación no usa cookies, ni analítica, ni publicidad, ni servicios de terceros. Las fuentes y librerías se sirven desde la propia app.</p>
+
+                <h3>Alojamiento</h3>
+                <p>La web está alojada en Vercel, que puede registrar datos técnicos de conexión (como la dirección IP) para servir la página y mantener su seguridad.</p>
+
+                <h3>Borrar tus datos</h3>
+                <p>Puedes eliminarlos en cualquier momento desde Configuración → Zona de Peligro, o borrando los datos del sitio en tu navegador.</p>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-primary" onclick="closePrivacyModal()">Entendido</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notification -->
     <div class="toast" id="toast">
         <span class="toast-message"></span>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="vendor/chart.umd.4.4.7.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

@@ -30,10 +30,10 @@ const AppData = {
             const settingsData = localStorage.getItem('autocare_settings');
 
             if (vehiclesData) {
-                this.vehicles = JSON.parse(vehiclesData);
+                this.vehicles = JSON.parse(vehiclesData).map(normalizeVehicle).filter(Boolean);
             }
             if (expensesData) {
-                this.expenses = JSON.parse(expensesData);
+                this.expenses = JSON.parse(expensesData).map(normalizeExpense).filter(Boolean);
             }
             if (settingsData) {
                 this.settings = { ...this.settings, ...JSON.parse(settingsData) };
@@ -59,13 +59,18 @@ const AppData = {
         return Date.now().toString(36) + Math.random().toString(36).substr(2);
     },
 
-    getCurrencySymbol() {
-        const symbols = { EUR: '€', USD: '$', GBP: '£' };
-        return symbols[this.settings.currency] || '€';
+    formatCurrency(amount, decimals = 2) {
+        const currency = ['EUR', 'USD', 'GBP'].includes(this.settings.currency) ? this.settings.currency : 'EUR';
+        return new Intl.NumberFormat('es-ES', {
+            style: 'currency',
+            currency,
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        }).format(parseFloat(amount) || 0);
     },
 
-    formatCurrency(amount) {
-        return `${this.getCurrencySymbol()}${parseFloat(amount).toFixed(2)}`;
+    getDistanceLabel() {
+        return this.settings.distanceUnit === 'mi' ? 'Millas' : 'Kilómetros';
     },
 
     formatNumber(num) {
@@ -81,6 +86,61 @@ const AppData = {
         });
     }
 };
+
+// ============================================
+// SANITIZING
+// ============================================
+
+const VALID_ID = /^[a-z0-9]+$/i;
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function isValidDate(value) {
+    return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+// Ids end up inside onclick attributes, so anything that is not alphanumeric is replaced
+function normalizeVehicle(v) {
+    if (!v || typeof v !== 'object') return null;
+    const mileage = parseInt(v.mileage) || 0;
+    const initialMileage = parseInt(v.initialMileage);
+    return {
+        id: VALID_ID.test(String(v.id)) ? String(v.id) : AppData.generateId(),
+        make: String(v.make ?? '').trim(),
+        model: String(v.model ?? '').trim(),
+        year: parseInt(v.year) || null,
+        plate: String(v.plate ?? '').trim().toUpperCase(),
+        mileage: mileage,
+        initialMileage: Number.isNaN(initialMileage) ? null : initialMileage,
+        notes: String(v.notes ?? '').trim()
+    };
+}
+
+function normalizeExpense(e) {
+    if (!e || typeof e !== 'object' || !isValidDate(e.date)) return null;
+    return {
+        id: VALID_ID.test(String(e.id)) ? String(e.id) : AppData.generateId(),
+        vehicleId: VALID_ID.test(String(e.vehicleId)) ? String(e.vehicleId) : '',
+        date: e.date,
+        category: CATEGORIES[e.category] ? e.category : 'other',
+        description: String(e.description ?? '').trim(),
+        cost: parseFloat(e.cost) || 0,
+        mileage: parseInt(e.mileage) || 0,
+        shop: String(e.shop ?? '').trim(),
+        notes: String(e.notes ?? '').trim()
+    };
+}
+
+function vehicleName(vehicle, fallback = 'Vehículo eliminado') {
+    return vehicle ? escapeHtml(`${vehicle.make} ${vehicle.model}`) : fallback;
+}
 
 // ============================================
 // NAVIGATION
@@ -268,24 +328,28 @@ function calculateAlerts() {
             }
         }
 
-        // Tires alert
-        const lastTires = vehicleExpenses.find(e => e.category === 'tires');
-        if (lastTires) {
-            const lastTiresMileage = parseInt(lastTires.mileage);
-            const tiresDueMileage = lastTiresMileage + AppData.settings.tiresInterval;
+        // Tires and brakes alerts (only once there is a previous record)
+        const mileageAlerts = [
+            { type: 'tires', title: 'Cambio de neumáticos', interval: AppData.settings.tiresInterval, margin: 5000, priority: 2 },
+            { type: 'brakes', title: 'Revisión de frenos', interval: AppData.settings.brakesInterval, margin: 2000, priority: 1 }
+        ];
 
-            if (tiresDueMileage - lastMileage <= 5000) {
-                const status = tiresDueMileage <= lastMileage ? 'danger' : 'warning';
+        mileageAlerts.forEach(config => {
+            const lastRecord = vehicleExpenses.find(e => e.category === config.type && parseInt(e.mileage) > 0);
+            if (!lastRecord) return;
+
+            const dueMileage = parseInt(lastRecord.mileage) + config.interval;
+            if (dueMileage - lastMileage <= config.margin) {
                 alerts.push({
                     vehicle: vehicle,
-                    type: 'tires',
-                    title: 'Cambio de neumáticos',
-                    message: `${vehicle.make} ${vehicle.model}: ${AppData.formatNumber(Math.max(0, tiresDueMileage - lastMileage))} ${AppData.settings.distanceUnit} restantes`,
-                    status: status,
-                    priority: 2
+                    type: config.type,
+                    title: config.title,
+                    message: `${vehicle.make} ${vehicle.model}: ${AppData.formatNumber(Math.max(0, dueMileage - lastMileage))} ${AppData.settings.distanceUnit} restantes`,
+                    status: dueMileage <= lastMileage ? 'danger' : 'warning',
+                    priority: config.priority
                 });
             }
-        }
+        });
     });
 
     return alerts.sort((a, b) => a.priority - b.priority);
@@ -304,15 +368,14 @@ function renderRecentActivity() {
 
     container.innerHTML = recentExpenses.map(expense => {
         const vehicle = AppData.vehicles.find(v => v.id === expense.vehicleId);
-        const vehicleName = vehicle ? `${vehicle.make} ${vehicle.model}` : 'Vehículo desconocido';
         const icon = getCategoryIcon(expense.category);
 
         return `
             <div class="activity-item">
                 <div class="activity-icon">${icon}</div>
                 <div class="activity-content">
-                    <div class="activity-title">${expense.description}</div>
-                    <div class="activity-meta">${vehicleName} • ${AppData.formatDate(expense.date)}</div>
+                    <div class="activity-title">${escapeHtml(expense.description)}</div>
+                    <div class="activity-meta">${vehicleName(vehicle, 'Vehículo desconocido')} • ${AppData.formatDate(expense.date)}</div>
                 </div>
                 <div class="activity-amount">${AppData.formatCurrency(expense.cost)}</div>
             </div>
@@ -338,8 +401,8 @@ function renderAlerts(alerts) {
                 </svg>
             </div>
             <div class="alert-content">
-                <div class="alert-title">${alert.title}</div>
-                <div class="alert-message">${alert.message}</div>
+                <div class="alert-title">${escapeHtml(alert.title)}</div>
+                <div class="alert-message">${escapeHtml(alert.message)}</div>
             </div>
             <span class="alert-badge">${alert.status === 'danger' ? 'Urgente' : 'Próximo'}</span>
         </div>
@@ -386,10 +449,7 @@ function renderExpensesChart() {
 
     const labels = Object.keys(categories).map(c => getCategoryLabel(c));
     const data = Object.values(categories);
-    const colors = [
-        '#F59E0B', '#4F46E5', '#059669', '#DC2626', 
-        '#4338CA', '#2563EB', '#059669', '#6B7280'
-    ];
+    const colors = Object.keys(categories).map(c => getCategoryColor(c));
 
     if (expensesChart) {
         expensesChart.destroy();
@@ -401,7 +461,7 @@ function renderExpensesChart() {
             labels: labels,
             datasets: [{
                 data: data,
-                backgroundColor: colors.slice(0, labels.length),
+                backgroundColor: colors,
                 borderWidth: 0
             }]
         },
@@ -510,14 +570,14 @@ function renderVehicles() {
                 <div class="vehicle-header">
                     <div class="vehicle-image">${vehicleIcon}</div>
                     <div class="vehicle-info">
-                        <h3>${vehicle.make} ${vehicle.model}</h3>
-                        <p>${vehicle.year || 'N/A'} • ${vehicle.plate}</p>
+                        <h3>${vehicleName(vehicle)}</h3>
+                        <p>${vehicle.year || 'N/A'} • ${escapeHtml(vehicle.plate)}</p>
                     </div>
                 </div>
                 <div class="vehicle-stats">
                     <div class="vehicle-stat">
                         <div class="vehicle-stat-value">${AppData.formatNumber(vehicle.mileage)}</div>
-                        <div class="vehicle-stat-label">Kilómetros</div>
+                        <div class="vehicle-stat-label">${AppData.getDistanceLabel()}</div>
                     </div>
                     <div class="vehicle-stat">
                         <div class="vehicle-stat-value">${AppData.formatCurrency(totalExpenses)}</div>
@@ -573,7 +633,6 @@ function openVehicleModal(vehicleId = null) {
     } else {
         title.textContent = 'Añadir Vehículo';
         document.getElementById('vehicleId').value = '';
-        document.getElementById('expenseDate').valueAsDate = new Date();
     }
 
     modal.classList.add('active');
@@ -607,7 +666,8 @@ function saveVehicle(e) {
         // Add new
         const newVehicle = {
             id: AppData.generateId(),
-            ...vehicleData
+            ...vehicleData,
+            initialMileage: vehicleData.mileage
         };
         AppData.vehicles.push(newVehicle);
         AppData.showToast('Vehículo añadido correctamente', 'success');
@@ -653,7 +713,7 @@ function renderExpenses() {
     if (vehicleSelect) {
         const currentValue = vehicleSelect.value;
         vehicleSelect.innerHTML = '<option value="all">Todos los vehículos</option>' +
-            AppData.vehicles.map(v => `<option value="${v.id}">${v.make} ${v.model}</option>`).join('');
+            AppData.vehicles.map(v => `<option value="${v.id}">${vehicleName(v)}</option>`).join('');
         vehicleSelect.value = currentValue;
     }
 
@@ -700,15 +760,14 @@ function renderExpenses() {
 
     tbody.innerHTML = filteredExpenses.map(expense => {
         const vehicle = AppData.vehicles.find(v => v.id === expense.vehicleId);
-        const vehicleName = vehicle ? `${vehicle.make} ${vehicle.model}` : 'Vehículo eliminado';
         const icon = getCategoryIcon(expense.category);
 
         return `
             <tr>
                 <td>${AppData.formatDate(expense.date)}</td>
-                <td>${vehicleName}</td>
+                <td>${vehicleName(vehicle)}</td>
                 <td><span class="category-badge ${expense.category}">${icon} ${getCategoryLabel(expense.category)}</span></td>
-                <td>${expense.description}</td>
+                <td>${escapeHtml(expense.description)}</td>
                 <td>${AppData.formatNumber(expense.mileage || 0)}</td>
                 <td class="cost">${AppData.formatCurrency(expense.cost)}</td>
                 <td>
@@ -742,7 +801,7 @@ function openExpenseModal(expenseId = null, preselectedVehicleId = null) {
     // Populate vehicle select
     const vehicleSelect = document.getElementById('expenseVehicle');
     vehicleSelect.innerHTML = '<option value="">Seleccionar vehículo...</option>' +
-        AppData.vehicles.map(v => `<option value="${v.id}">${v.make} ${v.model} (${v.plate})</option>`).join('');
+        AppData.vehicles.map(v => `<option value="${v.id}">${vehicleName(v)} (${escapeHtml(v.plate)})</option>`).join('');
 
     // Set date to today
     document.getElementById('expenseDate').valueAsDate = new Date();
@@ -856,28 +915,39 @@ function closeDeleteModal() {
 // REPORTS
 // ============================================
 
-function renderReports() {
-    renderCategoryReportChart();
-    renderMonthlyReportChart();
-    renderVehicleSummary();
-    renderKmCostSummary();
+function getReportRange() {
+    return {
+        start: document.getElementById('reportStartDate')?.value || '',
+        end: document.getElementById('reportEndDate')?.value || ''
+    };
 }
 
-function renderCategoryReportChart() {
+// Dates are stored as YYYY-MM-DD, so string comparison is enough
+function getReportExpenses() {
+    const { start, end } = getReportRange();
+    return AppData.expenses.filter(e => (!start || e.date >= start) && (!end || e.date <= end));
+}
+
+function renderReports() {
+    const reportExpenses = getReportExpenses();
+    renderCategoryReportChart(reportExpenses);
+    renderMonthlyReportChart(reportExpenses);
+    renderVehicleSummary(reportExpenses);
+    renderKmCostSummary(reportExpenses);
+}
+
+function renderCategoryReportChart(reportExpenses) {
     const ctx = document.getElementById('categoryReportChart');
     if (!ctx) return;
 
     const categories = {};
-    AppData.expenses.forEach(e => {
+    reportExpenses.forEach(e => {
         categories[e.category] = (categories[e.category] || 0) + parseFloat(e.cost);
     });
 
     const labels = Object.keys(categories).map(c => getCategoryLabel(c));
     const data = Object.values(categories);
-    const colors = [
-        '#F59E0B', '#4F46E5', '#059669', '#DC2626', 
-        '#4338CA', '#2563EB', '#059669', '#6B7280'
-    ];
+    const colors = Object.keys(categories).map(c => getCategoryColor(c));
 
     if (categoryReportChart) {
         categoryReportChart.destroy();
@@ -889,7 +959,7 @@ function renderCategoryReportChart() {
             labels: labels,
             datasets: [{
                 data: data,
-                backgroundColor: colors.slice(0, labels.length),
+                backgroundColor: colors,
                 borderWidth: 0
             }]
         },
@@ -909,27 +979,45 @@ function renderCategoryReportChart() {
     });
 }
 
-function renderMonthlyReportChart() {
+function renderMonthlyReportChart(reportExpenses) {
     const ctx = document.getElementById('monthlyReportChart');
     if (!ctx) return;
 
-    const monthlyData = {};
-    const currentYear = new Date().getFullYear();
-
-    // Initialize all months with 0
-    for (let i = 0; i < 12; i++) {
-        monthlyData[i] = 0;
-    }
-
-    // Fill with actual data
-    AppData.expenses
-        .filter(e => new Date(e.date).getFullYear() === currentYear)
-        .forEach(e => {
-            const month = new Date(e.date).getMonth();
-            monthlyData[month] += parseFloat(e.cost);
-        });
+    // Without a range, show the current year; with one, every month it covers
+    const { start, end } = getReportRange();
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const [startYear, startMonth] = start
+        ? start.split('-').map(Number)
+        : [end ? Number(end.split('-')[0]) : currentYear, 1];
+    const [endYear, endMonth] = end
+        ? end.split('-').map(Number)
+        : (start ? [currentYear, today.getMonth() + 1] : [currentYear, 12]);
 
     const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    const multiYear = startYear !== endYear;
+    const monthlyData = {};
+    const labels = [];
+
+    let y = startYear;
+    let m = startMonth;
+    while (y < endYear || (y === endYear && m <= endMonth)) {
+        const key = `${y}-${String(m).padStart(2, '0')}`;
+        monthlyData[key] = 0;
+        labels.push(multiYear ? `${monthNames[m - 1]} ${String(y).slice(2)}` : monthNames[m - 1]);
+        m++;
+        if (m > 12) {
+            m = 1;
+            y++;
+        }
+    }
+
+    reportExpenses.forEach(e => {
+        const key = e.date.slice(0, 7);
+        if (key in monthlyData) {
+            monthlyData[key] += parseFloat(e.cost);
+        }
+    });
 
     if (monthlyReportChart) {
         monthlyReportChart.destroy();
@@ -938,7 +1026,7 @@ function renderMonthlyReportChart() {
     monthlyReportChart = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: monthNames,
+            labels: labels,
             datasets: [{
                 label: 'Gastos mensuales',
                 data: Object.values(monthlyData),
@@ -966,7 +1054,7 @@ function renderMonthlyReportChart() {
     });
 }
 
-function renderVehicleSummary() {
+function renderVehicleSummary(reportExpenses) {
     const container = document.getElementById('vehicleSummary');
 
     if (AppData.vehicles.length === 0) {
@@ -975,12 +1063,12 @@ function renderVehicleSummary() {
     }
 
     const summaries = AppData.vehicles.map(vehicle => {
-        const vehicleExpenses = AppData.expenses
+        const vehicleExpenses = reportExpenses
             .filter(e => e.vehicleId === vehicle.id)
             .reduce((sum, e) => sum + parseFloat(e.cost), 0);
 
         return {
-            name: `${vehicle.make} ${vehicle.model}`,
+            name: vehicleName(vehicle),
             total: vehicleExpenses
         };
     });
@@ -993,7 +1081,9 @@ function renderVehicleSummary() {
     `).join('');
 }
 
-function renderKmCostSummary() {
+// Cost per distance actually driven: spending divided by the span between the
+// lowest and highest known mileage (registration, expenses and current odometer)
+function renderKmCostSummary(reportExpenses) {
     const container = document.getElementById('kmCostSummary');
 
     if (AppData.vehicles.length === 0) {
@@ -1001,24 +1091,35 @@ function renderKmCostSummary() {
         return;
     }
 
-    const summaries = AppData.vehicles.map(vehicle => {
-        const vehicleExpenses = AppData.expenses
-            .filter(e => e.vehicleId === vehicle.id)
-            .reduce((sum, e) => sum + parseFloat(e.cost), 0);
+    const { start, end } = getReportRange();
+    const hasRange = Boolean(start || end);
 
-        const mileage = parseInt(vehicle.mileage) || 1;
-        const costPerKm = vehicleExpenses / mileage;
+    const summaries = AppData.vehicles.map(vehicle => {
+        const vehicleExpenses = reportExpenses.filter(e => e.vehicleId === vehicle.id);
+        const total = vehicleExpenses.reduce((sum, e) => sum + parseFloat(e.cost), 0);
+
+        const readings = vehicleExpenses.map(e => parseInt(e.mileage)).filter(m => m > 0);
+        if (!hasRange) {
+            readings.push(parseInt(vehicle.mileage) || 0);
+            if (vehicle.initialMileage !== null && vehicle.initialMileage !== undefined) {
+                readings.push(vehicle.initialMileage);
+            }
+        }
+
+        const distance = readings.length > 1 ? Math.max(...readings) - Math.min(...readings) : 0;
 
         return {
-            name: `${vehicle.make} ${vehicle.model}`,
-            costPerKm: costPerKm
+            name: vehicleName(vehicle),
+            value: distance > 0
+                ? `${AppData.formatCurrency(total / distance, 3)}/${AppData.settings.distanceUnit}`
+                : 'Sin datos suficientes'
         };
     });
 
     container.innerHTML = summaries.map(s => `
         <div class="summary-item">
             <span class="summary-item-name">${s.name}</span>
-            <span class="summary-item-value">${AppData.formatCurrency(s.costPerKm)}/${AppData.settings.distanceUnit}</span>
+            <span class="summary-item-value">${s.value}</span>
         </div>
     `).join('');
 }
@@ -1073,12 +1174,13 @@ function clearAllData() {
 
 function exportData() {
     const exportObj = {
-        version: '1.0',
+        version: '1.1',
         exportDate: new Date().toISOString(),
         appName: 'AutoCare Tracker',
         data: {
             vehicles: AppData.vehicles,
-            expenses: AppData.expenses
+            expenses: AppData.expenses,
+            settings: AppData.settings
         }
     };
 
@@ -1100,6 +1202,54 @@ function exportData() {
     AppData.showToast('Datos exportados correctamente', 'success');
 }
 
+// Merges the imported data into the current data without deleting anything.
+// Vehicles are matched by id or plate; their expenses are re-linked to the
+// vehicle that is kept, so no expense is left pointing to a missing vehicle.
+function mergeImportedData(data) {
+    const wasEmpty = AppData.vehicles.length === 0 && AppData.expenses.length === 0;
+    const idMap = {};
+    let addedVehicles = 0;
+    let addedExpenses = 0;
+
+    data.vehicles.map(normalizeVehicle).filter(Boolean).forEach(vehicle => {
+        const existing = AppData.vehicles.find(v => v.id === vehicle.id) ||
+            (vehicle.plate && AppData.vehicles.find(v => v.plate === vehicle.plate));
+
+        if (existing) {
+            idMap[vehicle.id] = existing.id;
+            existing.mileage = Math.max(existing.mileage, vehicle.mileage);
+        } else {
+            idMap[vehicle.id] = vehicle.id;
+            AppData.vehicles.push(vehicle);
+            addedVehicles++;
+        }
+    });
+
+    const existingIds = new Set(AppData.expenses.map(e => e.id));
+    const vehicleIds = new Set(AppData.vehicles.map(v => v.id));
+
+    data.expenses.map(normalizeExpense).filter(Boolean).forEach(expense => {
+        expense.vehicleId = idMap[expense.vehicleId] || expense.vehicleId;
+        if (existingIds.has(expense.id) || !vehicleIds.has(expense.vehicleId)) return;
+        AppData.expenses.push(expense);
+        existingIds.add(expense.id);
+        addedExpenses++;
+    });
+
+    // Settings are only restored on an empty app, so a merge never changes your preferences
+    if (wasEmpty && data.settings && typeof data.settings === 'object') {
+        Object.keys(AppData.settings).forEach(key => {
+            if (data.settings[key] !== undefined) {
+                AppData.settings[key] = typeof AppData.settings[key] === 'number'
+                    ? parseInt(data.settings[key]) || AppData.settings[key]
+                    : String(data.settings[key]);
+            }
+        });
+    }
+
+    return { addedVehicles, addedExpenses };
+}
+
 function importData(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -1114,33 +1264,20 @@ function importData(event) {
                 throw new Error('Archivo JSON inválido');
             }
 
-            // Show confirmation dialog
-            const vehicleCount = importObj.data.vehicles.length;
-            const expenseCount = importObj.data.expenses.length;
-            const currentVehicles = AppData.vehicles.length;
-            const currentExpenses = AppData.expenses.length;
-
-            const confirmMsg = `¿Estás seguro de importar estos datos?\n\n` +
-                `📁 Archivo: ${vehicleCount} vehículos, ${expenseCount} gastos\n` +
-                `💾 Actual: ${currentVehicles} vehículos, ${currentExpenses} gastos\n\n` +
-                `⚠️ Esta acción sobrescribirá tus datos actuales.`;
+            const confirmMsg = `¿Importar estos datos?\n\n` +
+                `📁 Archivo: ${importObj.data.vehicles.length} vehículos, ${importObj.data.expenses.length} gastos\n` +
+                `💾 Actual: ${AppData.vehicles.length} vehículos, ${AppData.expenses.length} gastos\n\n` +
+                `Se combinarán con tus datos actuales, sin borrar nada. ` +
+                `Los vehículos con la misma matrícula se unifican.`;
 
             if (confirm(confirmMsg)) {
-                // Merge vehicles (avoid duplicates by plate)
-                const existingPlates = new Set(AppData.vehicles.map(v => v.plate));
-                const newVehicles = importObj.data.vehicles.filter(v => !existingPlates.has(v.plate));
-                AppData.vehicles = [...AppData.vehicles, ...newVehicles];
-
-                // Replace expenses (or merge by ID)
-                const existingIds = new Set(AppData.expenses.map(e => e.id));
-                const newExpenses = importObj.data.expenses.filter(e => !existingIds.has(e.id));
-                AppData.expenses = [...AppData.expenses, ...newExpenses];
+                const { addedVehicles, addedExpenses } = mergeImportedData(importObj.data);
 
                 AppData.saveData();
                 updateLastBackupInfo(false, importObj.exportDate);
 
-                AppData.showToast(`Importados ${newVehicles.length} vehículos y ${newExpenses.length} gastos`, 'success');
-                renderVehicles();
+                AppData.showToast(`Importados ${addedVehicles} vehículos y ${addedExpenses} gastos`, 'success');
+                renderCurrentPage();
                 updateDashboard();
             }
         } catch (error) {
@@ -1205,32 +1342,36 @@ function updateLastBackupInfo(isExport, dateStr = null) {
 // HELPER FUNCTIONS
 // ============================================
 
+const CATEGORIES = {
+    oil: { label: 'Cambio de Aceite', icon: '🛢️', color: '#F59E0B' },
+    tires: { label: 'Ruedas/Neumáticos', icon: '🛞', color: '#4F46E5' },
+    brakes: { label: 'Frenos', icon: '🛑', color: '#DB2777' },
+    itv: { label: 'ITV', icon: '📋', color: '#059669' },
+    parts: { label: 'Piezas/Repuestos', icon: '🔧', color: '#DC2626' },
+    maintenance: { label: 'Mantenimiento General', icon: '🔨', color: '#7C3AED' },
+    insurance: { label: 'Seguro', icon: '🛡️', color: '#2563EB' },
+    fuel: { label: 'Combustible', icon: '⛽', color: '#0D9488' },
+    other: { label: 'Otros', icon: '📦', color: '#6B7280' }
+};
+
 function getCategoryIcon(category) {
-    const icons = {
-        oil: '🛢️',
-        tires: '🍘',
-        itv: '📋',
-        parts: '🔧',
-        maintenance: '🔨',
-        insurance: '🛡️',
-        fuel: '⛽',
-        other: '📦'
-    };
-    return icons[category] || '📦';
+    return (CATEGORIES[category] || CATEGORIES.other).icon;
 }
 
 function getCategoryLabel(category) {
-    const labels = {
-        oil: 'Cambio de Aceite',
-        tires: 'Ruedas/Neumáticos',
-        itv: 'ITV',
-        parts: 'Piezas/Repuestos',
-        maintenance: 'Mantenimiento General',
-        insurance: 'Seguro',
-        fuel: 'Combustible',
-        other: 'Otros'
-    };
-    return labels[category] || 'Otros';
+    return (CATEGORIES[category] || CATEGORIES.other).label;
+}
+
+function getCategoryColor(category) {
+    return (CATEGORIES[category] || CATEGORIES.other).color;
+}
+
+function openPrivacyModal() {
+    document.getElementById('privacyModal').classList.add('active');
+}
+
+function closePrivacyModal() {
+    document.getElementById('privacyModal').classList.remove('active');
 }
 
 function getVehicleEmoji(make) {
@@ -1314,6 +1455,11 @@ AppData.setupEventListeners = function() {
 
     // Report date range
     document.getElementById('generateReport')?.addEventListener('click', () => {
+        const { start, end } = getReportRange();
+        if (start && end && start > end) {
+            AppData.showToast('La fecha de inicio debe ser anterior a la de fin', 'error');
+            return;
+        }
         renderReports();
         AppData.showToast('Informe actualizado', 'success');
     });

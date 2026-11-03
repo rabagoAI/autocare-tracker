@@ -1,0 +1,14 @@
+{
+  "name": "autocare-tracker",
+  "version": "1.1.0",
+  "private": true,
+  "description": "Gestión de gastos y mantenimiento de vehículos. Los datos se guardan solo en el navegador.",
+  "scripts": {
+    "start": "python3 -m http.server 5173 --bind 127.0.0.1",
+    "build": "node scripts/build.mjs",
+    "test": "node test.js && node test-mobile.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.48.0"
+  }
+}
