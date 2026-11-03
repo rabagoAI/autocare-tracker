@@ -1096,6 +1096,118 @@ body {
     color: #059669;
 }
 
+.backup-info:empty {
+    display: none;
+}
+
+.backup-section {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--gray-100);
+}
+
+.backup-section h4 {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--gray-800);
+    margin-bottom: 4px;
+}
+
+.backup-section .data-controls {
+    margin-top: 12px;
+    align-items: center;
+}
+
+.backup-section #folderStatus > .btn {
+    margin-top: 12px;
+}
+
+.folder-name {
+    margin-top: 8px;
+    font-size: 0.875rem;
+    color: var(--gray-700);
+    word-break: break-all;
+}
+
+.status-line {
+    margin-bottom: 4px;
+}
+
+.status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-right: 4px;
+    border-radius: 50%;
+    vertical-align: middle;
+}
+
+.status-dot.ok {
+    background: var(--secondary);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+
+.status-dot.warn {
+    background: var(--warning);
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+}
+
+/* Backup reminder on the dashboard */
+.backup-reminder {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+    padding: 16px 20px;
+    background: linear-gradient(135deg, #EFF6FF, #FEF3C7);
+    border: 1px solid #BFDBFE;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+}
+
+.backup-reminder[hidden] {
+    display: none;
+}
+
+.backup-reminder-icon {
+    font-size: 1.75rem;
+    animation: floppyFloat 2.4s ease-in-out infinite;
+}
+
+@keyframes floppyFloat {
+    0%, 100% { transform: translateY(0) rotate(0); }
+    50% { transform: translateY(-4px) rotate(-6deg); }
+}
+
+.backup-reminder-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.875rem;
+    color: var(--gray-600);
+}
+
+.backup-reminder-text strong {
+    color: var(--gray-900);
+}
+
+.backup-reminder-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+    .backup-reminder {
+        flex-wrap: wrap;
+    }
+
+    .backup-reminder-actions {
+        width: 100%;
+    }
+}
+
 /* Modal */
 .modal {
     display: none;

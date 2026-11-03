@@ -13,7 +13,8 @@ const AppData = {
         oilInterval: 15000,
         brakesInterval: 20000,
         itvInterval: 24,
-        tiresInterval: 40000
+        tiresInterval: 40000,
+        backupReminderDays: 30
     },
 
     init() {
@@ -22,6 +23,7 @@ const AppData = {
         renderCurrentPage();
         updateDashboard();
         Motion.enterPage(document.querySelector('.page.active'));
+        Backup.init();
     },
 
     loadData() {
@@ -50,6 +52,7 @@ const AppData = {
             localStorage.setItem('autocare_vehicles', JSON.stringify(this.vehicles));
             localStorage.setItem('autocare_expenses', JSON.stringify(this.expenses));
             localStorage.setItem('autocare_settings', JSON.stringify(this.settings));
+            Backup.onDataChanged();
         } catch (error) {
             console.error('Error saving data:', error);
             this.showToast('Error al guardar los datos', 'error');
@@ -278,6 +281,7 @@ function updateDashboard() {
 
     renderRecentActivity();
     renderAlerts(alerts);
+    Backup.renderReminder();
     renderCharts();
 }
 
@@ -1192,7 +1196,8 @@ function renderSettings() {
     document.getElementById('brakesInterval').value = AppData.settings.brakesInterval;
     document.getElementById('itvInterval').value = AppData.settings.itvInterval;
     document.getElementById('tiresInterval').value = AppData.settings.tiresInterval;
-    updateLastBackupInfo(false);
+    document.getElementById('backupReminderDays').value = AppData.settings.backupReminderDays;
+    Backup.renderStatus();
 }
 
 function saveSettings() {
@@ -1202,6 +1207,8 @@ function saveSettings() {
     AppData.settings.brakesInterval = parseInt(document.getElementById('brakesInterval').value) || 20000;
     AppData.settings.itvInterval = parseInt(document.getElementById('itvInterval').value) || 24;
     AppData.settings.tiresInterval = parseInt(document.getElementById('tiresInterval').value) || 40000;
+    const reminderDays = parseInt(document.getElementById('backupReminderDays').value);
+    AppData.settings.backupReminderDays = Number.isNaN(reminderDays) ? 30 : reminderDays;
 
     AppData.saveData();
     AppData.showToast('Configuración guardada', 'success');
@@ -1230,32 +1237,7 @@ function clearAllData() {
 // ============================================
 
 function exportData() {
-    const exportObj = {
-        version: '1.1',
-        exportDate: new Date().toISOString(),
-        appName: 'AutoCare Tracker',
-        data: {
-            vehicles: AppData.vehicles,
-            expenses: AppData.expenses,
-            settings: AppData.settings
-        }
-    };
-
-    const dataStr = JSON.stringify(exportObj, null, 2);
-    const blob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `autocare-backup-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    // Update last backup info
-    updateLastBackupInfo(true);
-
+    Backup.download();
     AppData.showToast('Datos exportados correctamente', 'success');
 }
 
@@ -1297,14 +1279,15 @@ function mergeImportedData(data) {
     if (wasEmpty && data.settings && typeof data.settings === 'object') {
         Object.keys(AppData.settings).forEach(key => {
             if (data.settings[key] !== undefined) {
+                const number = parseInt(data.settings[key]);
                 AppData.settings[key] = typeof AppData.settings[key] === 'number'
-                    ? parseInt(data.settings[key]) || AppData.settings[key]
+                    ? (Number.isNaN(number) ? AppData.settings[key] : number)
                     : String(data.settings[key]);
             }
         });
     }
 
-    return { addedVehicles, addedExpenses };
+    return { addedVehicles, addedExpenses, wasEmpty };
 }
 
 function importData(event) {
@@ -1328,10 +1311,13 @@ function importData(event) {
                 `Los vehículos con la misma matrícula se unifican.`;
 
             if (confirm(confirmMsg)) {
-                const { addedVehicles, addedExpenses } = mergeImportedData(importObj.data);
+                const { addedVehicles, addedExpenses, wasEmpty } = mergeImportedData(importObj.data);
 
                 AppData.saveData();
-                updateLastBackupInfo(false, importObj.exportDate);
+                if (wasEmpty) {
+                    // The imported file is a full copy of what is now in the app
+                    Backup.markBackup('import');
+                }
 
                 AppData.showToast(`Importados ${addedVehicles} vehículos y ${addedExpenses} gastos`, 'success');
                 renderCurrentPage();
@@ -1391,52 +1377,6 @@ function exportExpensesCsv() {
     URL.revokeObjectURL(url);
 
     AppData.showToast(`Exportados ${expenses.length} gastos a CSV`, 'success');
-}
-
-function updateLastBackupInfo(isExport, dateStr = null) {
-    const infoEl = document.getElementById('lastBackupInfo');
-    const now = new Date().toLocaleDateString('es-ES', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-
-    if (isExport) {
-        infoEl.innerHTML = `✅ Última exportación: ${now}`;
-        infoEl.className = 'backup-info success';
-    } else if (dateStr) {
-        const importDate = new Date(dateStr).toLocaleDateString('es-ES', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-        infoEl.innerHTML = `📥 Última importación: ${importDate}`;
-        infoEl.className = 'backup-info success';
-    } else {
-        // Check for existing backup info
-        const lastBackup = localStorage.getItem('autocare_lastBackup');
-        if (lastBackup) {
-            const backupDate = new Date(lastBackup).toLocaleDateString('es-ES', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-            infoEl.innerHTML = `📁 Última copia: ${backupDate}`;
-            infoEl.className = 'backup-info';
-        } else {
-            infoEl.innerHTML = '';
-        }
-    }
-
-    if (isExport || dateStr) {
-        localStorage.setItem('autocare_lastBackup', new Date().toISOString());
-    }
 }
 
 // ============================================
@@ -1554,7 +1494,6 @@ AppData.setupEventListeners = function() {
     // Export/Import data
     document.getElementById('exportData').addEventListener('click', exportData);
     document.getElementById('importData').addEventListener('change', importData);
-    updateLastBackupInfo(false); // Check for existing backup info
 
     // Report date range
     document.getElementById('generateReport')?.addEventListener('click', () => {

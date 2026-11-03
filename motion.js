@@ -22,7 +22,7 @@ const Motion = {
 
     // ---------- Page entrance ----------
     enterPage(page) {
-        if (this.reduced || !page) return;
+        if (this.reduced || !page || document.hidden) return;
         const items = [...page.querySelectorAll(this.staggerSelector)]
             .filter(el => !el.parentElement.closest('.empty-state'))
             .slice(0, 40);
