@@ -338,6 +338,11 @@
             </div>
         </section>
 
+        <!-- Vehicle Detail Page (filled by renderVehicleDetail) -->
+        <section class="page" id="vehicleDetailPage">
+            <div id="vehicleDetail"></div>
+        </section>
+
         <!-- Reports Page -->
         <section class="page" id="reportsPage">
             <div class="page-header">
@@ -624,6 +629,23 @@
                         <option value="other">📦 Otros</option>
                     </select>
                 </div>
+                <div class="fuel-fields" id="fuelFields" hidden>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="expenseLiters">Litros</label>
+                            <input type="number" id="expenseLiters" placeholder="0,00" step="0.01" min="0" inputmode="decimal">
+                        </div>
+                        <div class="form-group">
+                            <label for="expensePricePerLiter">Precio por litro</label>
+                            <input type="number" id="expensePricePerLiter" placeholder="1,559" step="0.001" min="0" inputmode="decimal">
+                        </div>
+                    </div>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="expenseFullTank" checked>
+                        Depósito lleno
+                    </label>
+                    <p class="help-text form-hint">Rellena dos de los tres datos (litros, precio por litro, importe) y calculamos el tercero. Si llenas el depósito y anotas los km, calculamos tu consumo real.</p>
+                </div>
                 <div class="form-group">
                     <label for="expenseDescription">Descripción *</label>
                     <input type="text" id="expenseDescription" placeholder="Ej: Cambio de aceite Castrol Edge" required>
@@ -642,9 +664,10 @@
                     <label for="expenseNotes">Notas adicionales</label>
                     <textarea id="expenseNotes" placeholder="Detalles adicionales..."></textarea>
                 </div>
+                <div class="form-warning" id="mileageWarning" role="alert" hidden></div>
                 <div class="form-actions">
                     <button type="button" class="btn btn-secondary" onclick="closeExpenseModal()">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Guardar</button>
+                    <button type="submit" class="btn btn-primary" id="expenseSubmit">Guardar</button>
                 </div>
             </form>
         </div>

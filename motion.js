@@ -9,7 +9,8 @@ const Motion = {
     staggerSelector: [
         '.stat-card', '.chart-card', '.dashboard-card', '.page-header', '.filters-bar',
         '.vehicle-card', '.settings-card', '.report-card', '.summary-item',
-        '.activity-item', '.alert-item', '.expenses-table tbody tr', '.empty-state'
+        '.activity-item', '.alert-item', '.expenses-table tbody tr', '.empty-state',
+        '.back-link', '.detail-hero', '.detail-stat', '.detail-card', '.timeline-item'
     ].join(', '),
 
     init() {

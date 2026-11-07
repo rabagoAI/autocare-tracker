@@ -138,6 +138,9 @@ function normalizeExpense(e) {
         description: String(e.description ?? '').trim(),
         cost: parseFloat(e.cost) || 0,
         mileage: parseInt(e.mileage) || 0,
+        liters: parseFloat(e.liters) > 0 ? parseFloat(e.liters) : null,
+        pricePerLiter: parseFloat(e.pricePerLiter) > 0 ? parseFloat(e.pricePerLiter) : null,
+        fullTank: e.fullTank === undefined ? null : Boolean(e.fullTank),
         shop: String(e.shop ?? '').trim(),
         notes: String(e.notes ?? '').trim()
     };
@@ -172,6 +175,9 @@ function renderCurrentPage() {
             break;
         case 'vehiclesPage':
             renderVehicles();
+            break;
+        case 'vehicleDetailPage':
+            renderVehicleDetail();
             break;
         case 'expensesPage':
             renderExpenses();
@@ -231,7 +237,8 @@ function navigateTo(page) {
     navItems.forEach(item => item.classList.remove('active'));
 
     const targetPage = document.getElementById(`${page}Page`);
-    const targetNav = document.querySelector(`.nav-item[data-page="${page}"]`);
+    const navPage = page === 'vehicleDetail' ? 'vehicles' : page;
+    const targetNav = document.querySelector(`.nav-item[data-page="${navPage}"]`);
 
     if (targetPage) {
         targetPage.classList.add('active');
@@ -245,6 +252,7 @@ function navigateTo(page) {
     const titles = {
         dashboard: { title: 'Dashboard', subtitle: 'Resumen de tus vehículos' },
         vehicles: { title: 'Mis Vehículos', subtitle: 'Gestiona todos tus vehículos' },
+        vehicleDetail: { title: 'Ficha del vehículo', subtitle: 'Historial, consumo y mantenimientos' },
         expenses: { title: 'Historial de Gastos', subtitle: 'Todos los gastos registrados' },
         reports: { title: 'Informes', subtitle: 'Analiza tus gastos y mantenimientos' },
         settings: { title: 'Configuración', subtitle: 'Personaliza tu aplicación' }
@@ -261,6 +269,7 @@ function navigateTo(page) {
     // Render page content
     renderCurrentPage();
     Motion.enterPage(targetPage);
+    window.scrollTo(0, 0);
 }
 
 // ============================================
@@ -294,77 +303,148 @@ function updateDashboard() {
     renderCharts();
 }
 
-function calculateAlerts() {
-    const alerts = [];
+// Status of every maintenance item of a vehicle, whether it is close or not.
+// status: ok | warning | danger | unknown (no data to calculate it)
+function getMaintenanceStatus(vehicle) {
+    const unit = AppData.settings.distanceUnit;
+    const fmt = n => AppData.formatNumber(n);
+    const name = `${vehicle.make} ${vehicle.model}`;
+    const current = getCurrentMileage(vehicle);
+    const vehicleExpenses = AppData.expenses.filter(e => e.vehicleId === vehicle.id);
+    const startMileage = vehicle.initialMileage ?? (parseInt(vehicle.mileage) || 0);
+    const items = [];
 
-    AppData.vehicles.forEach(vehicle => {
-        const vehicleExpenses = AppData.expenses
-            .filter(e => e.vehicleId === vehicle.id)
-            .sort((a, b) => parseInt(b.mileage) - parseInt(a.mileage));
+    // By distance. Oil counts from when the vehicle was added if there is no record.
+    const byDistance = [
+        { type: 'oil', title: 'Cambio de aceite', interval: AppData.settings.oilInterval, margin: 2000, priority: 1, fromStart: true },
+        { type: 'brakes', title: 'Revisión de frenos', interval: AppData.settings.brakesInterval, margin: 2000, priority: 1 },
+        { type: 'tires', title: 'Cambio de neumáticos', interval: AppData.settings.tiresInterval, margin: 5000, priority: 2 }
+    ];
 
-        const lastMileage = getCurrentMileage(vehicle);
+    byDistance.forEach(config => {
+        const lastRecord = vehicleExpenses
+            .filter(e => e.category === config.type && e.mileage > 0)
+            .sort((a, b) => b.mileage - a.mileage)[0];
 
-        // Oil change alert (without a recorded change, count from when the vehicle was added)
-        const lastOilChange = vehicleExpenses.find(e => e.category === 'oil' && parseInt(e.mileage) > 0);
-        const startMileage = vehicle.initialMileage ?? (parseInt(vehicle.mileage) || 0);
-        const lastOilMileage = lastOilChange ? parseInt(lastOilChange.mileage) : startMileage;
-        const oilDueMileage = lastOilMileage + AppData.settings.oilInterval;
-
-        if (oilDueMileage - lastMileage <= 2000) {
-            const status = oilDueMileage <= lastMileage ? 'danger' : 'warning';
-            alerts.push({
-                vehicle: vehicle,
-                type: 'oil',
-                title: 'Cambio de aceite',
-                message: `${vehicle.make} ${vehicle.model}: ${AppData.formatNumber(oilDueMileage - lastMileage)} ${AppData.settings.distanceUnit} restantes`,
-                status: status,
-                priority: 1
-            });
+        if (!lastRecord && !config.fromStart) {
+            items.push({ type: config.type, title: config.title, priority: config.priority, status: 'unknown', progress: null, detail: 'Sin registros con kilometraje' });
+            return;
         }
 
-        // ITV alert
-        const nextITV = getNextItvDate(vehicle, vehicleExpenses.find(e => e.category === 'itv'));
-        if (nextITV) {
-            const daysUntil = Math.ceil((nextITV - new Date()) / (1000 * 60 * 60 * 24));
-
-            if (daysUntil <= 60) {
-                const status = daysUntil <= 0 ? 'danger' : 'warning';
-                alerts.push({
-                    vehicle: vehicle,
-                    type: 'itv',
-                    title: 'ITV próxima',
-                    message: `${vehicle.make} ${vehicle.model}: ${daysUntil <= 0 ? 'vencida' : 'vence en ' + daysUntil + ' días'}`,
-                    status: status,
-                    priority: 0
-                });
-            }
-        }
-
-        // Tires and brakes alerts (only once there is a previous record)
-        const mileageAlerts = [
-            { type: 'tires', title: 'Cambio de neumáticos', interval: AppData.settings.tiresInterval, margin: 5000, priority: 2 },
-            { type: 'brakes', title: 'Revisión de frenos', interval: AppData.settings.brakesInterval, margin: 2000, priority: 1 }
-        ];
-
-        mileageAlerts.forEach(config => {
-            const lastRecord = vehicleExpenses.find(e => e.category === config.type && parseInt(e.mileage) > 0);
-            if (!lastRecord) return;
-
-            const dueMileage = parseInt(lastRecord.mileage) + config.interval;
-            if (dueMileage - lastMileage <= config.margin) {
-                alerts.push({
-                    vehicle: vehicle,
-                    type: config.type,
-                    title: config.title,
-                    message: `${vehicle.make} ${vehicle.model}: ${AppData.formatNumber(Math.max(0, dueMileage - lastMileage))} ${AppData.settings.distanceUnit} restantes`,
-                    status: dueMileage <= lastMileage ? 'danger' : 'warning',
-                    priority: config.priority
-                });
-            }
+        const from = lastRecord ? lastRecord.mileage : startMileage;
+        const remaining = from + config.interval - current;
+        items.push({
+            type: config.type,
+            title: config.title,
+            priority: config.priority,
+            status: remaining <= 0 ? 'danger' : remaining <= config.margin ? 'warning' : 'ok',
+            progress: Math.min(Math.max((current - from) / config.interval, 0), 1),
+            detail: remaining <= 0 ? `Pasado por ${fmt(-remaining)} ${unit}` : `Faltan ${fmt(remaining)} ${unit}`,
+            message: `${name}: ${remaining <= 0 ? `pasado por ${fmt(-remaining)} ${unit}` : `${fmt(remaining)} ${unit} restantes`}`
         });
     });
 
-    return alerts.sort((a, b) => a.priority - b.priority);
+    // ITV by date: the most recent one, not the one with more km
+    const lastITV = vehicleExpenses
+        .filter(e => e.category === 'itv')
+        .sort((a, b) => b.date.localeCompare(a.date))[0];
+    const nextITV = getNextItvDate(vehicle, lastITV);
+
+    if (nextITV) {
+        const daysUntil = Math.ceil((nextITV - new Date()) / (1000 * 60 * 60 * 24));
+        const from = lastITV ? parseLocalDate(lastITV.date) : null;
+        items.push({
+            type: 'itv',
+            title: 'ITV',
+            priority: 0,
+            status: daysUntil <= 0 ? 'danger' : daysUntil <= 60 ? 'warning' : 'ok',
+            progress: from ? Math.min(Math.max((new Date() - from) / (nextITV - from), 0), 1) : null,
+            detail: daysUntil <= 0
+                ? `Vencida desde el ${nextITV.toLocaleDateString('es-ES')}`
+                : `${nextITV.toLocaleDateString('es-ES')} · faltan ${daysUntil} días`,
+            message: `${name}: ${daysUntil <= 0 ? 'vencida' : 'vence en ' + daysUntil + ' días'}`
+        });
+    } else {
+        items.push({ type: 'itv', title: 'ITV', priority: 0, status: 'unknown', progress: null, detail: 'Añade la fecha de matriculación o registra una ITV' });
+    }
+
+    return items.sort((a, b) => a.priority - b.priority);
+}
+
+function calculateAlerts() {
+    return AppData.vehicles
+        .flatMap(vehicle => getMaintenanceStatus(vehicle)
+            .filter(item => item.status === 'warning' || item.status === 'danger')
+            .map(item => ({ ...item, title: item.type === 'itv' ? 'ITV próxima' : item.title, vehicle })))
+        .sort((a, b) => a.priority - b.priority);
+}
+
+// Fuel consumption with the full-tank method: between two full fills, the
+// liters added after the first one divided by the distance driven.
+// Impossible values (a partial fill marked as full, a km typo) are discarded.
+const CONSUMPTION_RANGE = { min: 2, max: 30 };
+
+function getFuelStats(vehicleId) {
+    const fills = AppData.expenses
+        .filter(e => e.vehicleId === vehicleId && e.category === 'fuel')
+        .sort((a, b) => a.date.localeCompare(b.date) || (a.mileage || 0) - (b.mileage || 0));
+
+    const withLiters = fills.filter(e => e.liters > 0);
+    const totalLiters = withLiters.reduce((sum, e) => sum + e.liters, 0);
+    const totalCost = fills.reduce((sum, e) => sum + (parseFloat(e.cost) || 0), 0);
+    const avgPrice = totalLiters > 0 ? withLiters.reduce((sum, e) => sum + parseFloat(e.cost), 0) / totalLiters : null;
+
+    const segments = [];
+    let discarded = 0;
+    let previousFull = null;
+    let litersSince = 0;
+    let complete = true;
+
+    fills.forEach(fill => {
+        if (!previousFull) {
+            if (fill.fullTank !== false && fill.mileage > 0) previousFull = fill;
+            return;
+        }
+        if (fill.liters > 0) {
+            litersSince += fill.liters;
+        } else {
+            complete = false;
+        }
+        if (fill.fullTank !== false && fill.mileage > 0) {
+            const distance = fill.mileage - previousFull.mileage;
+            if (complete && distance > 0 && litersSince > 0) {
+                const consumption = litersSince / distance * 100;
+                if (consumption >= CONSUMPTION_RANGE.min && consumption <= CONSUMPTION_RANGE.max) {
+                    segments.push({ date: fill.date, distance, liters: litersSince, consumption });
+                } else {
+                    discarded++;
+                }
+            }
+            previousFull = fill;
+            litersSince = 0;
+            complete = true;
+        }
+    });
+
+    const segmentLiters = segments.reduce((sum, s) => sum + s.liters, 0);
+    const segmentDistance = segments.reduce((sum, s) => sum + s.distance, 0);
+    const avgConsumption = segmentDistance > 0 ? segmentLiters / segmentDistance * 100 : null;
+
+    return {
+        count: fills.length,
+        totalLiters,
+        totalCost,
+        avgPrice,
+        avgConsumption,
+        lastConsumption: segments.length ? segments[segments.length - 1].consumption : null,
+        costPerDistance: avgConsumption && avgPrice ? avgConsumption * avgPrice / 100 : null,
+        segments,
+        discarded
+    };
+}
+
+function formatConsumption(value) {
+    return `${value.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 ${AppData.settings.distanceUnit}`;
 }
 
 function parseLocalDate(value) {
@@ -619,15 +699,17 @@ function renderVehicles() {
             .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
 
         const vehicleIcon = getVehicleEmoji(vehicle.make);
+        const consumption = getFuelStats(vehicle.id).avgConsumption;
 
         return `
             <div class="vehicle-card" data-id="${vehicle.id}">
-                <div class="vehicle-header">
+                <div class="vehicle-header" onclick="openVehicleDetail('${vehicle.id}')">
                     <div class="vehicle-image">${vehicleIcon}</div>
                     <div class="vehicle-info">
                         <h3>${vehicleName(vehicle)}</h3>
                         <p>${vehicle.year || 'N/A'} • ${escapeHtml(vehicle.plate)}</p>
                     </div>
+                    <button type="button" class="vehicle-open" onclick="event.stopPropagation(); openVehicleDetail('${vehicle.id}')">Ver ficha ›</button>
                 </div>
                 <div class="vehicle-stats">
                     <div class="vehicle-stat">
@@ -639,6 +721,7 @@ function renderVehicles() {
                         <div class="vehicle-stat-label">Total Gastos</div>
                     </div>
                 </div>
+                ${consumption ? `<div class="vehicle-consumption">⛽ ${formatConsumption(consumption)} de media</div>` : ''}
                 <div class="vehicle-footer">
                     <button class="btn btn-secondary btn-sm" onclick="openVehicleModal('${vehicle.id}')">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
@@ -734,7 +817,7 @@ function saveVehicle(e) {
 
     AppData.saveData();
     closeVehicleModal();
-    renderVehicles();
+    renderCurrentPage();
     updateDashboard();
 }
 
@@ -755,8 +838,252 @@ async function deleteVehicle(vehicleId) {
     AppData.expenses = AppData.expenses.filter(e => e.vehicleId !== vehicleId);
     AppData.saveData();
     AppData.showToast('Vehículo eliminado correctamente', 'success');
-    renderVehicles();
+    renderCurrentPage();
     updateDashboard();
+}
+
+// ============================================
+// VEHICLE DETAIL
+// ============================================
+
+let fuelChart = null;
+
+function openVehicleDetail(vehicleId) {
+    AppData.currentVehicleId = vehicleId;
+    navigateTo('vehicleDetail');
+}
+
+function renderVehicleDetail() {
+    const container = document.getElementById('vehicleDetail');
+    const vehicle = AppData.vehicles.find(v => v.id === AppData.currentVehicleId);
+    if (!vehicle) {
+        navigateTo('vehicles');
+        return;
+    }
+
+    const unit = AppData.settings.distanceUnit;
+    const expenses = AppData.expenses
+        .filter(e => e.vehicleId === vehicle.id)
+        .sort((a, b) => b.date.localeCompare(a.date) || b.mileage - a.mileage);
+    const total = expenses.reduce((sum, e) => sum + parseFloat(e.cost), 0);
+    const currentYear = String(new Date().getFullYear());
+    const yearTotal = expenses
+        .filter(e => e.date.startsWith(currentYear))
+        .reduce((sum, e) => sum + parseFloat(e.cost), 0);
+    const current = getCurrentMileage(vehicle);
+
+    const readings = [current, ...expenses.map(e => e.mileage).filter(m => m > 0)];
+    if (vehicle.initialMileage !== null && vehicle.initialMileage !== undefined) readings.push(vehicle.initialMileage);
+    const distance = Math.max(...readings) - Math.min(...readings);
+
+    const facts = [
+        escapeHtml(vehicle.plate),
+        vehicle.year ? `Año ${vehicle.year}` : '',
+        vehicle.registrationDate ? `Matriculado el ${AppData.formatDate(vehicle.registrationDate)}` : ''
+    ].filter(Boolean).join(' · ');
+
+    container.innerHTML = `
+        <button type="button" class="back-link" onclick="navigateTo('vehicles')">← Mis vehículos</button>
+
+        <div class="detail-hero">
+            <div class="detail-emoji" aria-hidden="true">${getVehicleEmoji(vehicle.make)}</div>
+            <div class="detail-title">
+                <h2>${vehicleName(vehicle)}</h2>
+                <p>${facts}</p>
+                ${vehicle.notes ? `<p class="detail-notes">${escapeHtml(vehicle.notes)}</p>` : ''}
+            </div>
+            <div class="detail-actions">
+                <button type="button" class="btn btn-secondary" onclick="openVehicleModal('${vehicle.id}')">Editar</button>
+                <button type="button" class="btn btn-primary" onclick="openExpenseModal(null, '${vehicle.id}')">+ Añadir gasto</button>
+            </div>
+        </div>
+
+        <div class="detail-stats">
+            ${detailStat('🛣️', AppData.formatNumber(current), AppData.getDistanceLabel() + ' actuales')}
+            ${detailStat('💶', AppData.formatCurrency(total), `Total gastado · ${expenses.length} ${expenses.length === 1 ? 'gasto' : 'gastos'}`)}
+            ${detailStat('📏', distance > 0 ? AppData.formatCurrency(total / distance, 3) : '—', `Coste por ${unit}`)}
+            ${detailStat('📅', AppData.formatCurrency(yearTotal), `Gastado en ${currentYear}`)}
+        </div>
+
+        <div class="detail-grid">
+            <div class="detail-card">
+                <h3>Mantenimientos</h3>
+                ${renderMaintenanceList(vehicle)}
+            </div>
+            <div class="detail-card">
+                <h3>Gasto por categoría</h3>
+                ${renderCategoryBars(expenses)}
+            </div>
+        </div>
+
+        <div class="detail-card">
+            <h3>⛽ Consumo</h3>
+            ${renderFuelSummary(getFuelStats(vehicle.id))}
+        </div>
+
+        <div class="detail-card">
+            <h3>Historial</h3>
+            ${renderTimeline(expenses)}
+        </div>
+    `;
+
+    renderFuelChart(getFuelStats(vehicle.id));
+}
+
+function detailStat(icon, value, label) {
+    return `
+        <div class="detail-stat">
+            <span class="detail-stat-icon" aria-hidden="true">${icon}</span>
+            <span class="detail-stat-value">${value}</span>
+            <span class="detail-stat-label">${label}</span>
+        </div>`;
+}
+
+function renderMaintenanceList(vehicle) {
+    const icons = { oil: '🛢️', brakes: '🛑', tires: '🛞', itv: '📋' };
+    const badges = { ok: 'Al día', warning: 'Próximo', danger: 'Urgente', unknown: 'Sin datos' };
+
+    return `<div class="maint-list">${getMaintenanceStatus(vehicle).map(item => `
+        <div class="maint-item ${item.status}">
+            <span class="maint-icon" aria-hidden="true">${icons[item.type]}</span>
+            <div class="maint-body">
+                <div class="maint-head">
+                    <span class="maint-title">${escapeHtml(item.title)}</span>
+                    <span class="maint-badge">${badges[item.status]}</span>
+                </div>
+                <div class="maint-detail">${escapeHtml(item.detail)}</div>
+                ${item.progress !== null ? `<div class="maint-bar"><span style="width: ${Math.round(item.progress * 100)}%"></span></div>` : ''}
+            </div>
+        </div>`).join('')}
+    </div>`;
+}
+
+function renderCategoryBars(expenses) {
+    if (expenses.length === 0) {
+        return '<div class="empty-state"><p>Todavía no hay gastos</p></div>';
+    }
+
+    const totals = {};
+    expenses.forEach(e => {
+        totals[e.category] = (totals[e.category] || 0) + parseFloat(e.cost);
+    });
+    const rows = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+    const max = rows[0][1] || 1;
+    const sum = rows.reduce((acc, [, value]) => acc + value, 0) || 1;
+
+    return `<div class="category-bars">${rows.map(([category, value]) => `
+        <div class="category-bar">
+            <div class="category-bar-head">
+                <span>${getCategoryIcon(category)} ${getCategoryLabel(category)}</span>
+                <span><strong>${AppData.formatCurrency(value)}</strong> · ${Math.round(value / sum * 100)}%</span>
+            </div>
+            <div class="category-bar-track">
+                <span style="width: ${Math.max(value / max * 100, 2)}%; background: ${getCategoryColor(category)}"></span>
+            </div>
+        </div>`).join('')}
+    </div>`;
+}
+
+function renderFuelSummary(fuel) {
+    if (fuel.count === 0) {
+        return `<p class="help-text">Aún no hay repostajes. Al registrar un gasto de <strong>Combustible</strong>, indica los litros, los km y si llenaste el depósito: con dos depósitos llenos calculamos tu consumo real.</p>`;
+    }
+
+    const stats = [
+        detailStat('⛽', fuel.avgConsumption ? formatConsumption(fuel.avgConsumption) : '—', 'Consumo medio'),
+        detailStat('🔄', fuel.lastConsumption ? formatConsumption(fuel.lastConsumption) : '—', 'Último tramo'),
+        detailStat('🏷️', fuel.avgPrice ? `${AppData.formatCurrency(fuel.avgPrice, 3)}/l` : '—', 'Precio medio'),
+        detailStat('💸', fuel.costPerDistance ? `${AppData.formatCurrency(fuel.costPerDistance, 3)}/${AppData.settings.distanceUnit}` : '—', 'Combustible por ' + AppData.settings.distanceUnit)
+    ].join('');
+
+    let hint = fuel.avgConsumption
+        ? `${fuel.count} repostajes · ${fuel.totalLiters.toLocaleString('es-ES', { maximumFractionDigits: 1 })} l · ${AppData.formatCurrency(fuel.totalCost)}`
+        : 'Para calcular el consumo hacen falta al menos dos repostajes con depósito lleno, litros y km.';
+    if (fuel.discarded) {
+        hint += ` · ⚠️ ${fuel.discarded} ${fuel.discarded === 1 ? 'tramo descartado' : 'tramos descartados'} por datos incoherentes (¿un repostaje parcial marcado como lleno o unos km mal escritos?)`;
+    }
+
+    return `
+        <div class="detail-stats compact">${stats}</div>
+        <p class="help-text">${hint}</p>
+        ${fuel.segments.length >= 2 ? '<div class="fuel-chart"><canvas id="fuelChart"></canvas></div>' : ''}`;
+}
+
+function renderFuelChart(fuel) {
+    const ctx = document.getElementById('fuelChart');
+    if (fuelChart) {
+        fuelChart.destroy();
+        fuelChart = null;
+    }
+    if (!ctx) return;
+
+    fuelChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: fuel.segments.map(s => AppData.formatDate(s.date)),
+            datasets: [{
+                label: `l/100 ${AppData.settings.distanceUnit}`,
+                data: fuel.segments.map(s => Number(s.consumption.toFixed(2))),
+                borderColor: '#0D9488',
+                backgroundColor: 'rgba(13, 148, 136, 0.12)',
+                fill: true,
+                tension: 0.35,
+                pointRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: false } }
+        }
+    });
+}
+
+function renderTimeline(expenses) {
+    if (expenses.length === 0) {
+        return '<div class="empty-state"><p>Todavía no hay gastos para este vehículo</p></div>';
+    }
+
+    const unit = AppData.settings.distanceUnit;
+    const years = {};
+    expenses.forEach(e => {
+        const year = e.date.slice(0, 4);
+        (years[year] = years[year] || []).push(e);
+    });
+
+    return Object.keys(years).sort().reverse().map(year => {
+        const yearTotal = years[year].reduce((sum, e) => sum + parseFloat(e.cost), 0);
+        return `
+            <div class="timeline-year">
+                <span>${year}</span>
+                <span>${AppData.formatCurrency(yearTotal)}</span>
+            </div>
+            <div class="timeline">${years[year].map(e => {
+                const meta = [
+                    AppData.formatDate(e.date),
+                    e.mileage ? `${AppData.formatNumber(e.mileage)} ${unit}` : '',
+                    e.liters ? `${e.liters.toLocaleString('es-ES', { maximumFractionDigits: 2 })} l` : '',
+                    e.shop ? escapeHtml(e.shop) : ''
+                ].filter(Boolean).join(' · ');
+                return `
+                    <div class="timeline-item" data-id="${e.id}">
+                        <span class="timeline-dot" style="background: ${getCategoryColor(e.category)}">${getCategoryIcon(e.category)}</span>
+                        <div class="timeline-body">
+                            <div class="timeline-title">${escapeHtml(e.description) || getCategoryLabel(e.category)}</div>
+                            <div class="timeline-meta">${meta}</div>
+                        </div>
+                        <div class="timeline-cost">${AppData.formatCurrency(e.cost)}</div>
+                        <button type="button" class="action-btn edit" onclick="openExpenseModal('${e.id}')" title="Editar gasto" aria-label="Editar gasto">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                            </svg>
+                        </button>
+                    </div>`;
+            }).join('')}
+            </div>`;
+    }).join('');
 }
 
 // ============================================
@@ -872,6 +1199,8 @@ function openExpenseModal(expenseId = null, preselectedVehicleId = null) {
 
     // Set date to today
     document.getElementById('expenseDate').valueAsDate = new Date();
+    document.getElementById('expenseFullTank').checked = true;
+    resetMileageWarning();
 
     if (expenseId) {
         const expense = AppData.expenses.find(e => e.id === expenseId);
@@ -886,6 +1215,9 @@ function openExpenseModal(expenseId = null, preselectedVehicleId = null) {
             document.getElementById('expenseCost').value = expense.cost;
             document.getElementById('expenseShop').value = expense.shop || '';
             document.getElementById('expenseNotes').value = expense.notes || '';
+            document.getElementById('expenseLiters').value = expense.liters ?? '';
+            document.getElementById('expensePricePerLiter').value = expense.pricePerLiter ?? '';
+            document.getElementById('expenseFullTank').checked = expense.fullTank ?? true;
         }
     } else {
         title.textContent = 'Registrar Gasto';
@@ -896,7 +1228,84 @@ function openExpenseModal(expenseId = null, preselectedVehicleId = null) {
         }
     }
 
+    toggleFuelFields();
     Motion.openModal(modal);
+}
+
+// ---------- Fuel fields ----------
+function toggleFuelFields() {
+    const isFuel = document.getElementById('expenseCategory').value === 'fuel';
+    document.getElementById('fuelFields').hidden = !isFuel;
+}
+
+// With two of liters, price per liter and cost, the third one is calculated
+function syncFuelValues(changedId) {
+    const litersEl = document.getElementById('expenseLiters');
+    const priceEl = document.getElementById('expensePricePerLiter');
+    const costEl = document.getElementById('expenseCost');
+    const liters = parseFloat(litersEl.value);
+    const price = parseFloat(priceEl.value);
+    const cost = parseFloat(costEl.value);
+
+    if (changedId !== 'expenseCost' && liters > 0 && price > 0) {
+        costEl.value = (liters * price).toFixed(2);
+    } else if (changedId !== 'expensePricePerLiter' && liters > 0 && cost > 0) {
+        priceEl.value = (cost / liters).toFixed(3);
+    } else if (changedId !== 'expenseLiters' && price > 0 && cost > 0) {
+        litersEl.value = (cost / price).toFixed(2);
+    }
+}
+
+// ---------- Suspicious mileage ----------
+// Returns a warning when the mileage does not fit the vehicle history, or null
+function checkExpenseMileage(vehicleId, date, mileage, expenseId) {
+    if (!mileage || !vehicleId || !date) return null;
+
+    const unit = AppData.settings.distanceUnit;
+    const fmt = n => `${AppData.formatNumber(n)} ${unit}`;
+    const others = AppData.expenses.filter(e => e.vehicleId === vehicleId && e.id !== expenseId && e.mileage > 0);
+
+    const earlierHigher = others
+        .filter(e => e.date < date && e.mileage > mileage)
+        .sort((a, b) => b.mileage - a.mileage)[0];
+    if (earlierHigher) {
+        return `El ${AppData.formatDate(earlierHigher.date)} el vehículo ya tenía ${fmt(earlierHigher.mileage)}, más que los ${fmt(mileage)} de este gasto.`;
+    }
+
+    const laterLower = others
+        .filter(e => e.date > date && e.mileage < mileage)
+        .sort((a, b) => a.mileage - b.mileage)[0];
+    if (laterLower) {
+        return `Un gasto posterior (${AppData.formatDate(laterLower.date)}) tiene ${fmt(laterLower.mileage)}, menos que los ${fmt(mileage)} de este.`;
+    }
+
+    const vehicle = AppData.vehicles.find(v => v.id === vehicleId);
+    const known = Math.max(parseInt(vehicle?.mileage) || 0, ...others.map(e => e.mileage));
+    if (known > 0 && mileage - known > 30000) {
+        return `Son ${fmt(mileage - known)} más que el último dato (${fmt(known)}). ¿Sobra alguna cifra?`;
+    }
+
+    return null;
+}
+
+function showMileageWarning(message) {
+    const warning = document.getElementById('mileageWarning');
+    warning.innerHTML = `<strong>⚠️ Revisa el kilometraje.</strong> ${escapeHtml(message)} Si es correcto, pulsa «Guardar igualmente».`;
+    warning.hidden = false;
+    document.getElementById('expenseSubmit').textContent = 'Guardar igualmente';
+    document.getElementById('expenseMileage').focus();
+    if (!Motion.reduced) {
+        warning.animate([
+            { transform: 'translateX(0)' }, { transform: 'translateX(-8px)' },
+            { transform: 'translateX(8px)' }, { transform: 'translateX(0)' }
+        ], { duration: 350, easing: 'ease-in-out' });
+    }
+}
+
+function resetMileageWarning() {
+    document.getElementById('mileageWarning').hidden = true;
+    document.getElementById('expenseSubmit').textContent = 'Guardar';
+    delete document.getElementById('expenseForm').dataset.confirmedMileage;
 }
 
 function closeExpenseModal() {
@@ -909,14 +1318,29 @@ function saveExpense(e) {
     const id = document.getElementById('expenseId').value;
     const vehicleId = document.getElementById('expenseVehicle').value;
     const mileage = parseInt(document.getElementById('expenseMileage').value) || 0;
+    const date = document.getElementById('expenseDate').value;
+    const category = document.getElementById('expenseCategory').value;
+    const isFuel = category === 'fuel';
+
+    // A suspicious mileage is shown once; saving again confirms it
+    const form = document.getElementById('expenseForm');
+    const warning = checkExpenseMileage(vehicleId, date, mileage, id);
+    if (warning && form.dataset.confirmedMileage !== `${vehicleId}|${date}|${mileage}`) {
+        showMileageWarning(warning);
+        form.dataset.confirmedMileage = `${vehicleId}|${date}|${mileage}`;
+        return;
+    }
 
     const expenseData = {
         vehicleId: vehicleId,
-        date: document.getElementById('expenseDate').value,
-        category: document.getElementById('expenseCategory').value,
+        date: date,
+        category: category,
         description: document.getElementById('expenseDescription').value.trim(),
         cost: parseFloat(document.getElementById('expenseCost').value),
         mileage: mileage,
+        liters: isFuel ? parseFloat(document.getElementById('expenseLiters').value) || null : null,
+        pricePerLiter: isFuel ? parseFloat(document.getElementById('expensePricePerLiter').value) || null : null,
+        fullTank: isFuel ? document.getElementById('expenseFullTank').checked : null,
         shop: document.getElementById('expenseShop').value.trim(),
         notes: document.getElementById('expenseNotes').value.trim()
     };
@@ -1354,7 +1778,7 @@ function exportExpensesCsv() {
     const decimal = value => (parseFloat(value) || 0).toFixed(2).replace('.', ',');
 
     const header = ['Fecha', 'Vehículo', 'Matrícula', 'Categoría', 'Descripción',
-        `Kilometraje (${AppData.settings.distanceUnit})`, `Coste (${AppData.settings.currency})`, 'Taller', 'Notas'];
+        `Kilometraje (${AppData.settings.distanceUnit})`, `Coste (${AppData.settings.currency})`, 'Litros', 'Precio por litro', 'Depósito lleno', 'Taller', 'Notas'];
     const rows = expenses.map(e => {
         const vehicle = AppData.vehicles.find(v => v.id === e.vehicleId);
         return [
@@ -1365,6 +1789,9 @@ function exportExpensesCsv() {
             e.description,
             e.mileage || '',
             decimal(e.cost),
+            e.liters ? String(e.liters).replace('.', ',') : '',
+            e.pricePerLiter ? String(e.pricePerLiter).replace('.', ',') : '',
+            e.fullTank === null ? '' : (e.fullTank ? 'Sí' : 'No'),
             e.shop,
             e.notes
         ];
@@ -1472,6 +1899,15 @@ AppData.setupEventListeners = function() {
 
     // Expense form
     document.getElementById('expenseForm').addEventListener('submit', saveExpense);
+    document.getElementById('expenseCategory').addEventListener('change', toggleFuelFields);
+    ['expenseLiters', 'expensePricePerLiter', 'expenseCost'].forEach(fieldId => {
+        document.getElementById(fieldId).addEventListener('change', () => {
+            if (document.getElementById('expenseCategory').value === 'fuel') syncFuelValues(fieldId);
+        });
+    });
+    ['expenseMileage', 'expenseDate', 'expenseVehicle'].forEach(fieldId => {
+        document.getElementById(fieldId).addEventListener('input', resetMileageWarning);
+    });
     document.getElementById('addExpenseBtn').addEventListener('click', () => openExpenseModal());
     document.getElementById('addExpenseBtnPage').addEventListener('click', () => openExpenseModal());
     document.getElementById('exportCsvBtn').addEventListener('click', exportExpensesCsv);
