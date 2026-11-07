@@ -983,8 +983,9 @@ function renderVehicleDetail(container, vehicle) {
         </div>
 
         <div class="detail-card">
-            <h3>⛽ Consumo</h3>
-            ${renderFuelSummary(getFuelStats(vehicle.id))}
+            ${vehicle.fuelType === 'electric'
+                ? `<h3>⚡ Recargas</h3>${renderChargingSummary(vehicle)}`
+                : `<h3>⛽ Consumo</h3>${renderFuelSummary(getFuelStats(vehicle.id))}`}
         </div>
 
         <div class="detail-card">
@@ -993,7 +994,7 @@ function renderVehicleDetail(container, vehicle) {
         </div>
     `;
 
-    renderFuelChart(getFuelStats(vehicle.id));
+    renderFuelChart(vehicle.fuelType === 'electric' ? { segments: [] } : getFuelStats(vehicle.id));
 }
 
 function detailStat(icon, value, label) {
@@ -1048,6 +1049,28 @@ function renderCategoryBars(expenses) {
             </div>
         </div>`).join('')}
     </div>`;
+}
+
+// Electric vehicles: charges are recorded as "Combustible" expenses without liters
+function renderChargingSummary(vehicle) {
+    const charges = AppData.expenses.filter(e => e.vehicleId === vehicle.id && e.category === 'fuel');
+    if (charges.length === 0) {
+        return `<p class="help-text">Aún no hay recargas. Regístralas como gasto de <strong>Combustible</strong> con los km del momento y calcularemos lo que te cuesta la energía por ${AppData.settings.distanceUnit}.</p>`;
+    }
+
+    const total = charges.reduce((sum, e) => sum + parseFloat(e.cost), 0);
+    const readings = charges.map(e => e.mileage).filter(m => m > 0);
+    const distance = readings.length > 1 ? Math.max(...readings) - Math.min(...readings) : 0;
+    const unit = AppData.settings.distanceUnit;
+
+    return `
+        <div class="detail-stats compact">
+            ${detailStat('⚡', charges.length, 'Recargas')}
+            ${detailStat('💶', AppData.formatCurrency(total), 'Gastado en energía')}
+            ${detailStat('📏', distance > 0 ? `${AppData.formatCurrency(total / distance, 3)}/${unit}` : '—', `Energía por ${unit}`)}
+            ${detailStat('🏷️', AppData.formatCurrency(total / charges.length), 'Media por recarga')}
+        </div>
+        <p class="help-text">Las recargas se registran como gasto de Combustible; con los km de cada una calculamos el coste por ${unit}.</p>`;
 }
 
 function renderFuelSummary(fuel) {
