@@ -102,6 +102,8 @@ const AppData = {
 
 const VALID_ID = /^[a-z0-9]+$/i;
 
+const FUEL_TYPES = { gasoline: 'Gasolina', diesel: 'Diésel', hybrid: 'Híbrido', electric: 'Eléctrico' };
+
 function escapeHtml(value) {
     return String(value ?? '')
         .replace(/&/g, '&amp;')
@@ -130,6 +132,7 @@ function normalizeVehicle(v) {
         initialMileage: Number.isNaN(initialMileage) ? null : initialMileage,
         registrationDate: isValidDate(v.registrationDate) ? v.registrationDate : '',
         color: /^#[0-9a-f]{6}$/i.test(v.color || '') ? v.color : '',
+        fuelType: FUEL_TYPES[v.fuelType] ? v.fuelType : '',
         insuranceDue: isValidDate(v.insuranceDue) ? v.insuranceDue : '',
         taxDue: isValidDate(v.taxDue) ? v.taxDue : '',
         notes: String(v.notes ?? '').trim()
@@ -325,6 +328,9 @@ function getMaintenanceStatus(vehicle) {
     ];
 
     byDistance.forEach(config => {
+        // Electric vehicles have no engine oil
+        if (config.type === 'oil' && vehicle.fuelType === 'electric') return;
+
         const lastRecord = vehicleExpenses
             .filter(e => e.category === config.type && e.mileage > 0)
             .sort((a, b) => b.mileage - a.mileage)[0];
@@ -779,6 +785,7 @@ function openVehicleModal(vehicleId = null) {
             document.getElementById('vehicleInsuranceDue').value = vehicle.insuranceDue || '';
             document.getElementById('vehicleTaxDue').value = vehicle.taxDue || '';
             document.getElementById('vehicleNotes').value = vehicle.notes || '';
+            document.getElementById('vehicleFuelType').value = vehicle.fuelType || '';
             setVehicleColor(getVehicleColor(vehicle));
             showPhotoPreview(Photos.get(vehicle.id));
         }
@@ -840,6 +847,7 @@ async function saveVehicle(e) {
         insuranceDue: document.getElementById('vehicleInsuranceDue').value,
         taxDue: document.getElementById('vehicleTaxDue').value,
         color: document.getElementById('vehicleColor').value,
+        fuelType: document.getElementById('vehicleFuelType').value,
         notes: document.getElementById('vehicleNotes').value.trim()
     };
     let savedId = id;
@@ -933,6 +941,7 @@ function renderVehicleDetail(container, vehicle) {
     const facts = [
         escapeHtml(vehicle.plate),
         vehicle.year ? `Año ${vehicle.year}` : '',
+        FUEL_TYPES[vehicle.fuelType] || '',
         vehicle.registrationDate ? `Matriculado el ${AppData.formatDate(vehicle.registrationDate)}` : ''
     ].filter(Boolean).join(' · ');
 
