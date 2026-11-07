@@ -20,6 +20,11 @@ const AppData = {
     init() {
         this.loadData();
         this.setupEventListeners();
+        Garage.init();
+        // Photos load asynchronously; the garage is redrawn once they are ready
+        Photos.load().then(() => {
+            if (document.getElementById('vehiclesPage').classList.contains('active')) renderVehicles();
+        });
         renderCurrentPage();
         updateDashboard();
         Motion.enterPage(document.querySelector('.page.active'));
@@ -124,6 +129,9 @@ function normalizeVehicle(v) {
         mileage: mileage,
         initialMileage: Number.isNaN(initialMileage) ? null : initialMileage,
         registrationDate: isValidDate(v.registrationDate) ? v.registrationDate : '',
+        color: /^#[0-9a-f]{6}$/i.test(v.color || '') ? v.color : '',
+        insuranceDue: isValidDate(v.insuranceDue) ? v.insuranceDue : '',
+        taxDue: isValidDate(v.taxDue) ? v.taxDue : '',
         notes: String(v.notes ?? '').trim()
     };
 }
@@ -175,9 +183,6 @@ function renderCurrentPage() {
             break;
         case 'vehiclesPage':
             renderVehicles();
-            break;
-        case 'vehicleDetailPage':
-            renderVehicleDetail();
             break;
         case 'expensesPage':
             renderExpenses();
@@ -237,8 +242,7 @@ function navigateTo(page) {
     navItems.forEach(item => item.classList.remove('active'));
 
     const targetPage = document.getElementById(`${page}Page`);
-    const navPage = page === 'vehicleDetail' ? 'vehicles' : page;
-    const targetNav = document.querySelector(`.nav-item[data-page="${navPage}"]`);
+    const targetNav = document.querySelector(`.nav-item[data-page="${page}"]`);
 
     if (targetPage) {
         targetPage.classList.add('active');
@@ -252,7 +256,6 @@ function navigateTo(page) {
     const titles = {
         dashboard: { title: 'Dashboard', subtitle: 'Resumen de tus vehículos' },
         vehicles: { title: 'Mis Vehículos', subtitle: 'Gestiona todos tus vehículos' },
-        vehicleDetail: { title: 'Ficha del vehículo', subtitle: 'Historial, consumo y mantenimientos' },
         expenses: { title: 'Historial de Gastos', subtitle: 'Todos los gastos registrados' },
         reports: { title: 'Informes', subtitle: 'Analiza tus gastos y mantenimientos' },
         settings: { title: 'Configuración', subtitle: 'Personaliza tu aplicación' }
@@ -368,7 +371,60 @@ function getMaintenanceStatus(vehicle) {
         items.push({ type: 'itv', title: 'ITV', priority: 0, status: 'unknown', progress: null, detail: 'Añade la fecha de matriculación o registra una ITV' });
     }
 
+    // Yearly deadlines by date
+    const deadlines = [
+        { type: 'insurance', title: 'Seguro', field: 'insuranceDue', missing: 'Añade la fecha de renovación al editar el vehículo' },
+        { type: 'tax', title: 'Impuesto de circulación', field: 'taxDue', missing: 'Añade la fecha de pago al editar el vehículo' }
+    ];
+
+    deadlines.forEach(config => {
+        const deadline = getAnnualDeadline(vehicle[config.field], config.type, vehicleExpenses);
+        if (!deadline) {
+            items.push({ type: config.type, title: config.title, priority: 0, status: 'unknown', progress: null, detail: config.missing });
+            return;
+        }
+        const { due, days } = deadline;
+        const dateText = due.toLocaleDateString('es-ES');
+        items.push({
+            type: config.type,
+            title: config.title,
+            priority: 0,
+            status: days < 0 ? 'danger' : days <= 30 ? 'warning' : 'ok',
+            progress: Math.min(Math.max(1 - days / 365, 0), 1),
+            detail: days < 0
+                ? `Vencido el ${dateText}`
+                : `${dateText} · ${days === 0 ? 'vence hoy' : `faltan ${days} días`}`,
+            message: `${name}: ${config.title.toLowerCase()} ${days < 0 ? `vencido hace ${-days} días` : days === 0 ? 'vence hoy' : `vence en ${days} días`}`
+        });
+    });
+
     return items.sort((a, b) => a.priority - b.priority);
+}
+
+// Next occurrence of a yearly date. A payment recorded close to the due date
+// (60 days before to 30 after) closes that year and moves on to the next one.
+function getAnnualDeadline(baseDate, category, vehicleExpenses) {
+    if (!isValidDate(baseDate)) return null;
+
+    const dayMs = 1000 * 60 * 60 * 24;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const due = parseLocalDate(baseDate);
+    while (due < new Date(today - 30 * dayMs)) {
+        due.setFullYear(due.getFullYear() + 1);
+    }
+
+    const isPaid = date => vehicleExpenses.some(e => {
+        if (e.category !== category) return false;
+        const paidOn = parseLocalDate(e.date);
+        return paidOn >= new Date(date - 60 * dayMs) && paidOn <= new Date(date.getTime() + 30 * dayMs);
+    });
+    if (isPaid(due)) {
+        due.setFullYear(due.getFullYear() + 1);
+    }
+
+    return { due, days: Math.round((due - today) / dayMs) };
 }
 
 function calculateAlerts() {
@@ -620,7 +676,8 @@ function renderVehicleChart() {
             .reduce((sum, e) => sum + parseFloat(e.cost), 0);
         return {
             name: `${vehicle.make} ${vehicle.model}`,
-            total: vehicleExpenses
+            total: vehicleExpenses,
+            color: getVehicleColor(vehicle)
         };
     }).filter(v => v.total > 0);
 
@@ -635,7 +692,7 @@ function renderVehicleChart() {
             datasets: [{
                 label: 'Gastos totales',
                 data: vehicleData.map(v => v.total),
-                backgroundColor: '#2563EB',
+                backgroundColor: vehicleData.map(v => v.color === '#1B1E27' ? '#4B5470' : v.color),
                 borderRadius: 8
             }]
         },
@@ -674,79 +731,31 @@ const ROAD_SCENE = `
     </div>`;
 
 function renderVehicles() {
-    const container = document.getElementById('vehiclesGrid');
+    Garage.render();
+}
 
-    if (AppData.vehicles.length === 0) {
+// Sheet under the carousel: the full detail of the centered vehicle
+function renderVehicleSheet(vehicle) {
+    const container = document.getElementById('vehicleSheet');
+    if (!container) return;
+
+    if (!vehicle) {
+        if (fuelChart) {
+            fuelChart.destroy();
+            fuelChart = null;
+        }
         container.innerHTML = `
-            <div class="empty-state large">
+            <div class="empty-state large garage-empty">
                 ${ROAD_SCENE}
-                <h3>No tienes vehículos</h3>
-                <p>Añade tu primer vehículo para empezar a gestionar sus gastos</p>
-                <button class="btn btn-primary" onclick="openVehicleModal()">Añadir Vehículo</button>
-            </div>
-        `;
+                <h3>${AppData.vehicles.length ? '¿Tienes otro vehículo?' : 'No tienes vehículos'}</h3>
+                <p>Añádelo para llevar sus gastos, mantenimientos y consumo</p>
+                <button type="button" class="btn btn-primary" onclick="openVehicleModal()">+ Añadir vehículo</button>
+            </div>`;
         return;
     }
 
-    container.innerHTML = AppData.vehicles.map(vehicle => {
-        const vehicleExpenses = AppData.expenses
-            .filter(e => e.vehicleId === vehicle.id)
-            .reduce((sum, e) => sum + parseFloat(e.cost), 0);
-        
-        const totalExpenses = vehicleExpenses;
-        const lastExpense = AppData.expenses
-            .filter(e => e.vehicleId === vehicle.id)
-            .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
-
-        const vehicleIcon = getVehicleEmoji(vehicle.make);
-        const consumption = getFuelStats(vehicle.id).avgConsumption;
-
-        return `
-            <div class="vehicle-card" data-id="${vehicle.id}">
-                <div class="vehicle-header" onclick="openVehicleDetail('${vehicle.id}')">
-                    <div class="vehicle-image">${vehicleIcon}</div>
-                    <div class="vehicle-info">
-                        <h3>${vehicleName(vehicle)}</h3>
-                        <p>${vehicle.year || 'N/A'} • ${escapeHtml(vehicle.plate)}</p>
-                    </div>
-                    <button type="button" class="vehicle-open" onclick="event.stopPropagation(); openVehicleDetail('${vehicle.id}')">Ver ficha ›</button>
-                </div>
-                <div class="vehicle-stats">
-                    <div class="vehicle-stat">
-                        <div class="vehicle-stat-value">${AppData.formatNumber(getCurrentMileage(vehicle))}</div>
-                        <div class="vehicle-stat-label">${AppData.getDistanceLabel()}</div>
-                    </div>
-                    <div class="vehicle-stat">
-                        <div class="vehicle-stat-value">${AppData.formatCurrency(totalExpenses)}</div>
-                        <div class="vehicle-stat-label">Total Gastos</div>
-                    </div>
-                </div>
-                ${consumption ? `<div class="vehicle-consumption">⛽ ${formatConsumption(consumption)} de media</div>` : ''}
-                <div class="vehicle-footer">
-                    <button class="btn btn-secondary btn-sm" onclick="openVehicleModal('${vehicle.id}')">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                        </svg>
-                        Editar
-                    </button>
-                    <button class="btn btn-primary btn-sm" onclick="openExpenseModal(null, '${vehicle.id}')">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                            <line x1="12" y1="5" x2="12" y2="19"/>
-                            <line x1="5" y1="12" x2="19" y2="12"/>
-                        </svg>
-                        Añadir Gasto
-                    </button>
-                    <button class="btn btn-danger-outline btn-sm" onclick="confirmDeleteVehicle('${vehicle.id}')">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                            <polyline points="3 6 5 6 21 6"/>
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-        `;
-    }).join('');
+    renderVehicleDetail(container, vehicle);
+    Motion.reveal(container, '.detail-hero, .detail-stat, .detail-card');
 }
 
 function openVehicleModal(vehicleId = null) {
@@ -767,21 +776,57 @@ function openVehicleModal(vehicleId = null) {
             document.getElementById('vehiclePlate').value = vehicle.plate;
             document.getElementById('vehicleMileage').value = getCurrentMileage(vehicle);
             document.getElementById('vehicleRegistration').value = vehicle.registrationDate || '';
+            document.getElementById('vehicleInsuranceDue').value = vehicle.insuranceDue || '';
+            document.getElementById('vehicleTaxDue').value = vehicle.taxDue || '';
             document.getElementById('vehicleNotes').value = vehicle.notes || '';
+            setVehicleColor(getVehicleColor(vehicle));
+            showPhotoPreview(Photos.get(vehicle.id));
         }
     } else {
         title.textContent = 'Añadir Vehículo';
         document.getElementById('vehicleId').value = '';
+        setVehicleColor(CAR_COLORS[AppData.vehicles.length % CAR_COLORS.length]);
+        showPhotoPreview(null);
     }
 
+    pendingPhoto = undefined;
     Motion.openModal(modal);
+}
+
+// undefined: keep the current photo, null: remove it, string: new photo
+let pendingPhoto;
+
+function setVehicleColor(color) {
+    document.getElementById('vehicleColor').value = color;
+    document.querySelectorAll('.color-swatch').forEach(swatch => {
+        swatch.classList.toggle('active', swatch.dataset.color.toLowerCase() === color.toLowerCase());
+    });
+}
+
+function showPhotoPreview(dataUrl) {
+    const preview = document.getElementById('vehiclePhotoPreview');
+    preview.innerHTML = dataUrl ? `<img src="${dataUrl}" alt="Foto del vehículo">` : '<span>Sin foto: se mostrará el dibujo con el color elegido</span>';
+    document.getElementById('removeVehiclePhoto').hidden = !dataUrl;
+}
+
+async function handleVehiclePhoto(event) {
+    const file = event.target.files[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+        pendingPhoto = await Photos.resize(file);
+        showPhotoPreview(pendingPhoto);
+    } catch (error) {
+        console.error('Photo:', error);
+        AppData.showToast('No se ha podido leer esa imagen', 'error');
+    }
 }
 
 function closeVehicleModal() {
     Motion.closeModal(document.getElementById('vehicleModal'));
 }
 
-function saveVehicle(e) {
+async function saveVehicle(e) {
     e.preventDefault();
 
     const id = document.getElementById('vehicleId').value;
@@ -792,8 +837,12 @@ function saveVehicle(e) {
         plate: document.getElementById('vehiclePlate').value.trim().toUpperCase(),
         mileage: parseInt(document.getElementById('vehicleMileage').value) || 0,
         registrationDate: document.getElementById('vehicleRegistration').value,
+        insuranceDue: document.getElementById('vehicleInsuranceDue').value,
+        taxDue: document.getElementById('vehicleTaxDue').value,
+        color: document.getElementById('vehicleColor').value,
         notes: document.getElementById('vehicleNotes').value.trim()
     };
+    let savedId = id;
 
     if (id) {
         // Update existing
@@ -810,9 +859,17 @@ function saveVehicle(e) {
             initialMileage: vehicleData.mileage
         };
         AppData.vehicles.push(newVehicle);
+        savedId = newVehicle.id;
+        Garage.selectedId = newVehicle.id;
         AppData.showToast('Vehículo añadido correctamente', 'success');
         Motion.driveBy(getVehicleEmoji(newVehicle.make));
         Motion.confetti(null, AppData.vehicles.length === 1 ? 120 : 60);
+    }
+
+    if (pendingPhoto) {
+        await Photos.save(savedId, pendingPhoto);
+    } else if (pendingPhoto === null) {
+        await Photos.remove(savedId);
     }
 
     AppData.saveData();
@@ -833,8 +890,9 @@ function confirmDeleteVehicle(vehicleId) {
 
 async function deleteVehicle(vehicleId) {
     closeDeleteModal();
-    await Motion.leave(document.querySelector(`.vehicle-card[data-id="${vehicleId}"]`));
+    await Motion.leave(document.querySelector(`.garage-slide[data-id="${vehicleId}"]`));
     AppData.vehicles = AppData.vehicles.filter(v => v.id !== vehicleId);
+    Photos.remove(vehicleId);
     AppData.expenses = AppData.expenses.filter(e => e.vehicleId !== vehicleId);
     AppData.saveData();
     AppData.showToast('Vehículo eliminado correctamente', 'success');
@@ -848,18 +906,14 @@ async function deleteVehicle(vehicleId) {
 
 let fuelChart = null;
 
+// Opens the garage with this vehicle centered and scrolls to its sheet
 function openVehicleDetail(vehicleId) {
     AppData.currentVehicleId = vehicleId;
-    navigateTo('vehicleDetail');
+    Garage.selectedId = vehicleId;
+    navigateTo('vehicles');
 }
 
-function renderVehicleDetail() {
-    const container = document.getElementById('vehicleDetail');
-    const vehicle = AppData.vehicles.find(v => v.id === AppData.currentVehicleId);
-    if (!vehicle) {
-        navigateTo('vehicles');
-        return;
-    }
+function renderVehicleDetail(container, vehicle) {
 
     const unit = AppData.settings.distanceUnit;
     const expenses = AppData.expenses
@@ -883,18 +937,21 @@ function renderVehicleDetail() {
     ].filter(Boolean).join(' · ');
 
     container.innerHTML = `
-        <button type="button" class="back-link" onclick="navigateTo('vehicles')">← Mis vehículos</button>
-
         <div class="detail-hero">
-            <div class="detail-emoji" aria-hidden="true">${getVehicleEmoji(vehicle.make)}</div>
             <div class="detail-title">
-                <h2>${vehicleName(vehicle)}</h2>
+                <span class="detail-kicker">Ficha del vehículo</span>
                 <p>${facts}</p>
                 ${vehicle.notes ? `<p class="detail-notes">${escapeHtml(vehicle.notes)}</p>` : ''}
             </div>
             <div class="detail-actions">
                 <button type="button" class="btn btn-secondary" onclick="openVehicleModal('${vehicle.id}')">Editar</button>
                 <button type="button" class="btn btn-primary" onclick="openExpenseModal(null, '${vehicle.id}')">+ Añadir gasto</button>
+                <button type="button" class="btn btn-danger-outline" onclick="confirmDeleteVehicle('${vehicle.id}')" aria-label="Eliminar vehículo" title="Eliminar vehículo">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                    </svg>
+                </button>
             </div>
         </div>
 
@@ -940,7 +997,7 @@ function detailStat(icon, value, label) {
 }
 
 function renderMaintenanceList(vehicle) {
-    const icons = { oil: '🛢️', brakes: '🛑', tires: '🛞', itv: '📋' };
+    const icons = { oil: '🛢️', brakes: '🛑', tires: '🛞', itv: '📋', insurance: '🛡️', tax: '🏛️' };
     const badges = { ok: 'Al día', warning: 'Próximo', danger: 'Urgente', unknown: 'Sin datos' };
 
     return `<div class="maint-list">${getMaintenanceStatus(vehicle).map(item => `
@@ -1090,13 +1147,41 @@ function renderTimeline(expenses) {
 // EXPENSES
 // ============================================
 
-// Expenses shown in the table, with its filters and sort order applied
+// Lowercase without accents, so "revision" finds "Revisión"
+function normalizeSearch(text) {
+    return String(text ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+const MONTH_NAMES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+function expenseSearchText(expense) {
+    const vehicle = AppData.vehicles.find(v => v.id === expense.vehicleId);
+    const [year, month] = expense.date.split('-');
+    return normalizeSearch([
+        expense.description, expense.shop, expense.notes,
+        vehicle ? `${vehicle.make} ${vehicle.model} ${vehicle.plate}` : '',
+        getCategoryLabel(expense.category),
+        AppData.formatDate(expense.date), `${MONTH_NAMES[Number(month) - 1]} ${year}`,
+        AppData.formatCurrency(expense.cost), String(expense.cost).replace('.', ','),
+        expense.mileage || ''
+    ].join(' '));
+}
+
+// Expenses shown in the table, with its search, filters and sort order applied
 function getFilteredExpenses() {
     const vehicleFilter = document.getElementById('filterVehicle')?.value || 'all';
     const categoryFilter = document.getElementById('filterCategory')?.value || 'all';
     const sortValue = document.getElementById('sortExpenses')?.value || 'date-desc';
 
     let filteredExpenses = [...AppData.expenses];
+
+    const words = normalizeSearch(document.getElementById('searchExpenses')?.value).split(/\s+/).filter(Boolean);
+    if (words.length) {
+        filteredExpenses = filteredExpenses.filter(e => {
+            const text = expenseSearchText(e);
+            return words.every(word => text.includes(word));
+        });
+    }
 
     if (vehicleFilter !== 'all') {
         filteredExpenses = filteredExpenses.filter(e => e.vehicleId === vehicleFilter);
@@ -1136,6 +1221,11 @@ function renderExpenses() {
     }
 
     const filteredExpenses = getFilteredExpenses();
+    const search = document.getElementById('searchExpenses')?.value.trim() || '';
+    const isFiltered = Boolean(search) || filteredExpenses.length !== AppData.expenses.length;
+    const filteredTotal = filteredExpenses.reduce((sum, e) => sum + parseFloat(e.cost), 0);
+    document.getElementById('expensesSummary').textContent = AppData.expenses.length === 0 ? '' :
+        `${filteredExpenses.length} ${filteredExpenses.length === 1 ? 'gasto' : 'gastos'}${isFiltered ? ` de ${AppData.expenses.length}` : ''} · ${AppData.formatCurrency(filteredTotal)}`;
 
     const tbody = document.getElementById('expensesTableBody');
 
@@ -1144,7 +1234,11 @@ function renderExpenses() {
             <tr class="empty-row">
                 <td colspan="7">
                     <div class="empty-state">
-                        <p>No hay gastos registrados</p>
+                        <p>${AppData.expenses.length === 0
+                            ? 'No hay gastos registrados'
+                            : search
+                                ? `Ningún gasto coincide con «${escapeHtml(search)}»`
+                                : 'Ningún gasto coincide con los filtros'}</p>
                     </div>
                 </td>
             </tr>
@@ -1647,6 +1741,7 @@ function confirmClearAllData() {
 }
 
 function clearAllData() {
+    AppData.vehicles.forEach(v => Photos.remove(v.id));
     AppData.vehicles = [];
     AppData.expenses = [];
     AppData.saveData();
@@ -1715,7 +1810,20 @@ function mergeImportedData(data) {
         });
     }
 
-    return { addedVehicles, addedExpenses, wasEmpty };
+    // Photos (backup 1.2+): only for vehicles that do not have one yet
+    let addedPhotos = 0;
+    if (data.photos && typeof data.photos === 'object') {
+        Object.entries(data.photos).forEach(([oldId, photo]) => {
+            const vehicleId = idMap[oldId];
+            const isImage = typeof photo === 'string' && photo.startsWith('data:image/') && photo.length < 5_000_000;
+            if (vehicleId && isImage && !Photos.get(vehicleId)) {
+                Photos.save(vehicleId, photo);
+                addedPhotos++;
+            }
+        });
+    }
+
+    return { addedVehicles, addedExpenses, addedPhotos, wasEmpty };
 }
 
 function importData(event) {
@@ -1822,6 +1930,7 @@ const CATEGORIES = {
     parts: { label: 'Piezas/Repuestos', icon: '🔧', color: '#DC2626' },
     maintenance: { label: 'Mantenimiento General', icon: '🔨', color: '#7C3AED' },
     insurance: { label: 'Seguro', icon: '🛡️', color: '#2563EB' },
+    tax: { label: 'Impuesto de circulación', icon: '🏛️', color: '#9333EA' },
     fuel: { label: 'Combustible', icon: '⛽', color: '#0D9488' },
     other: { label: 'Otros', icon: '📦', color: '#6B7280' }
 };
@@ -1895,6 +2004,15 @@ AppData.setupEventListeners = function() {
 
     // Vehicle form
     document.getElementById('vehicleForm').addEventListener('submit', saveVehicle);
+    document.querySelectorAll('.color-swatch').forEach(swatch => {
+        swatch.addEventListener('click', () => setVehicleColor(swatch.dataset.color));
+    });
+    document.getElementById('vehicleColor').addEventListener('input', e => setVehicleColor(e.target.value));
+    document.getElementById('vehiclePhoto').addEventListener('change', handleVehiclePhoto);
+    document.getElementById('removeVehiclePhoto').addEventListener('click', () => {
+        pendingPhoto = null;
+        showPhotoPreview(null);
+    });
     document.getElementById('addVehicleBtn').addEventListener('click', () => openVehicleModal());
 
     // Expense form
@@ -1916,6 +2034,30 @@ AppData.setupEventListeners = function() {
     document.getElementById('filterVehicle')?.addEventListener('change', renderExpenses);
     document.getElementById('filterCategory')?.addEventListener('change', renderExpenses);
     document.getElementById('sortExpenses')?.addEventListener('change', renderExpenses);
+
+    // Search: updates as you type (slightly delayed) and can be cleared with ✕ or Escape
+    const searchInput = document.getElementById('searchExpenses');
+    const clearSearch = document.getElementById('clearSearch');
+    let searchTimer = null;
+    searchInput.addEventListener('input', () => {
+        clearSearch.hidden = !searchInput.value;
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(renderExpenses, 150);
+    });
+    searchInput.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && searchInput.value) {
+            e.stopPropagation();
+            searchInput.value = '';
+            clearSearch.hidden = true;
+            renderExpenses();
+        }
+    });
+    clearSearch.addEventListener('click', () => {
+        searchInput.value = '';
+        clearSearch.hidden = true;
+        renderExpenses();
+        searchInput.focus();
+    });
 
     // Chart period
     document.getElementById('chartPeriod')?.addEventListener('change', () => {

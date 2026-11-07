@@ -5,13 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
     <title>AutoCare Tracker - Gestión de Gastos Vehiculares</title>
-    <meta name="theme-color" content="#2563EB">
+    <meta name="theme-color" content="#06070C">
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
     <link rel="stylesheet" href="vendor/fonts/inter.css">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="motion.css">
+    <link rel="stylesheet" href="vendor/fonts/unbounded.css">
+    <link rel="stylesheet" href="theme.css">
 </head>
 <body>
     <!-- Sidebar Navigation -->
@@ -225,33 +227,23 @@
 
         <!-- Vehicles Page -->
         <section class="page" id="vehiclesPage">
-            <div class="page-header">
-                <div class="page-info">
-                    <h2>Mis Vehículos</h2>
-                    <p>Gestiona todos tus vehículos y su información</p>
+            <div class="garage" id="garage">
+                <div class="garage-head">
+                    <span class="garage-kicker">Tu garaje</span>
+                    <h2 class="garage-title" id="garageTitle">Mis vehículos</h2>
+                    <p class="garage-subtitle" id="garageSubtitle">Desliza para elegir un vehículo</p>
                 </div>
-                <button class="btn btn-primary" id="addVehicleBtn">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="12" y1="5" x2="12" y2="19"/>
-                        <line x1="5" y1="12" x2="19" y2="12"/>
-                    </svg>
-                    Añadir Vehículo
-                </button>
-            </div>
-            <div class="vehicles-grid" id="vehiclesGrid">
-                <div class="empty-state large">
-                    <div class="road-scene" aria-hidden="true">
-                        <div class="road"></div>
-                        <div class="car">🚗</div>
-                        <div class="puff"></div>
-                        <div class="puff"></div>
-                        <div class="puff"></div>
-                    </div>
-                    <h3>No tienes vehículos</h3>
-                    <p>Añade tu primer vehículo para empezar a gestionar sus gastos</p>
-                    <button class="btn btn-primary" onclick="document.getElementById('addVehicleBtn').click()">Añadir Vehículo</button>
+                <div class="garage-stage">
+                    <div class="garage-track" id="garageTrack" aria-label="Tus vehículos"></div>
+                </div>
+                <div class="garage-controls">
+                    <button type="button" class="garage-arrow" id="garagePrev" aria-label="Vehículo anterior">‹</button>
+                    <div class="garage-dots" id="garageDots"></div>
+                    <button type="button" class="garage-arrow" id="garageNext" aria-label="Vehículo siguiente">›</button>
                 </div>
             </div>
+            <div class="garage-sheet" id="vehicleSheet" aria-live="polite"></div>
+            <button type="button" id="addVehicleBtn" hidden>Añadir vehículo</button>
         </section>
 
         <!-- Expenses Page -->
@@ -280,6 +272,14 @@
                 </button>
                 </div>
             </div>
+            <div class="search-bar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <circle cx="11" cy="11" r="7"/>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <input type="search" id="searchExpenses" placeholder="Buscar: aceite, Michelin, 1234ABC, octubre 2026…" aria-label="Buscar gastos" autocomplete="off">
+                <button type="button" class="search-clear" id="clearSearch" aria-label="Borrar búsqueda" hidden>✕</button>
+            </div>
             <div class="filters-bar">
                 <div class="filter-group">
                     <label>Filtrar por vehículo:</label>
@@ -297,6 +297,7 @@
                         <option value="parts">Piezas</option>
                         <option value="itv">ITV</option>
                         <option value="insurance">Seguro</option>
+                        <option value="tax">Impuesto de circulación</option>
                         <option value="fuel">Combustible</option>
                         <option value="maintenance">Mantenimiento General</option>
                         <option value="other">Otros</option>
@@ -312,6 +313,7 @@
                     </select>
                 </div>
             </div>
+            <p class="results-summary" id="expensesSummary" aria-live="polite"></p>
             <div class="expenses-table-container">
                 <table class="expenses-table">
                     <thead>
@@ -336,11 +338,6 @@
                     </tbody>
                 </table>
             </div>
-        </section>
-
-        <!-- Vehicle Detail Page (filled by renderVehicleDetail) -->
-        <section class="page" id="vehicleDetailPage">
-            <div id="vehicleDetail"></div>
         </section>
 
         <!-- Reports Page -->
@@ -571,6 +568,45 @@
                     </div>
                 </div>
                 <p class="help-text form-hint">Con la fecha de matriculación avisamos de la ITV aunque no hayas registrado ninguna: la primera a los 4 años, después cada 2 hasta los 10 y luego cada año.</p>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="vehicleInsuranceDue">Renovación del seguro</label>
+                        <input type="date" id="vehicleInsuranceDue">
+                    </div>
+                    <div class="form-group">
+                        <label for="vehicleTaxDue">Pago del impuesto de circulación</label>
+                        <input type="date" id="vehicleTaxDue">
+                    </div>
+                </div>
+                <p class="help-text form-hint">Se repiten cada año. Te avisamos 30 días antes; si registras el gasto de Seguro o de Impuesto de circulación, el aviso pasa al año siguiente.</p>
+                <div class="form-group">
+                    <label for="vehicleColor">Color</label>
+                    <div class="color-picker">
+                        <button type="button" class="color-swatch" data-color="#2F5BEA" style="--swatch: #2F5BEA" aria-label="Azul"></button>
+                        <button type="button" class="color-swatch" data-color="#C9CED8" style="--swatch: #C9CED8" aria-label="Plata"></button>
+                        <button type="button" class="color-swatch" data-color="#1B1E27" style="--swatch: #1B1E27" aria-label="Negro"></button>
+                        <button type="button" class="color-swatch" data-color="#F2F2F2" style="--swatch: #F2F2F2" aria-label="Blanco"></button>
+                        <button type="button" class="color-swatch" data-color="#D7263D" style="--swatch: #D7263D" aria-label="Rojo"></button>
+                        <button type="button" class="color-swatch" data-color="#2E8B57" style="--swatch: #2E8B57" aria-label="Verde"></button>
+                        <button type="button" class="color-swatch" data-color="#F5A623" style="--swatch: #F5A623" aria-label="Amarillo"></button>
+                        <button type="button" class="color-swatch" data-color="#7B3FE4" style="--swatch: #7B3FE4" aria-label="Morado"></button>
+                        <input type="color" id="vehicleColor" value="#2F5BEA" aria-label="Otro color">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Foto (opcional)</label>
+                    <div class="photo-field">
+                        <div class="photo-preview" id="vehiclePhotoPreview"></div>
+                        <div class="photo-actions">
+                            <label class="btn btn-secondary btn-sm">
+                                📷 Elegir foto
+                                <input type="file" id="vehiclePhoto" accept="image/*" hidden>
+                            </label>
+                            <button type="button" class="btn btn-danger-outline btn-sm" id="removeVehiclePhoto" hidden>Quitar</button>
+                        </div>
+                    </div>
+                    <p class="help-text">La foto se guarda solo en este dispositivo y se incluye en tu copia de seguridad.</p>
+                </div>
                 <div class="form-group">
                     <label for="vehicleNotes">Notas</label>
                     <textarea id="vehicleNotes" placeholder="Información adicional..."></textarea>
@@ -625,6 +661,7 @@
                         <option value="parts">🔧 Piezas/Repuestos</option>
                         <option value="maintenance">🔨 Mantenimiento General</option>
                         <option value="insurance">🛡️ Seguro</option>
+                        <option value="tax">🏛️ Impuesto de circulación</option>
                         <option value="fuel">⛽ Combustible</option>
                         <option value="other">📦 Otros</option>
                     </select>
@@ -714,6 +751,8 @@
                 <p>Los vehículos, gastos y la configuración se guardan únicamente en el almacenamiento local (<code>localStorage</code>) de este navegador. No se envían a ningún servidor ni los ve nadie más.</p>
                 <p>Por eso, si cambias de navegador o de dispositivo, o borras los datos de navegación, no los verás. Para llevarlos de un sitio a otro usa <strong>Exportar</strong> e <strong>Importar</strong> en Configuración.</p>
 
+                <p>Las fotos de tus vehículos también se guardan solo en este navegador y se incluyen en la copia JSON.</p>
+
                 <h3>Copias de seguridad</h3>
                 <p>Al exportar se descarga un archivo JSON en tu dispositivo. Si eliges una carpeta de copias, la app escribe ahí el archivo directamente; la carpeta está en tu ordenador y la app no envía nada a ningún sitio.</p>
                 <p>Si guardas las copias en Google Drive u otra nube (o eliges una carpeta sincronizada con ella), es ese servicio quien sube el archivo, y queda sujeto a sus condiciones.</p>
@@ -744,6 +783,7 @@
     <script src="vendor/chart.umd.4.4.7.js"></script>
     <script src="motion.js"></script>
     <script src="backup.js"></script>
+    <script src="garage.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

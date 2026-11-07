@@ -10,7 +10,7 @@ const Motion = {
         '.stat-card', '.chart-card', '.dashboard-card', '.page-header', '.filters-bar',
         '.vehicle-card', '.settings-card', '.report-card', '.summary-item',
         '.activity-item', '.alert-item', '.expenses-table tbody tr', '.empty-state',
-        '.back-link', '.detail-hero', '.detail-stat', '.detail-card', '.timeline-item'
+        '.garage-head', '.garage-controls'
     ].join(', '),
 
     init() {
@@ -75,6 +75,58 @@ const Motion = {
             }
         };
         requestAnimationFrame(step);
+    },
+
+    // ---------- Garage: the selected car rolls in ----------
+    carArrives(carEl) {
+        if (this.reduced || !carEl || document.hidden) return;
+        const ease = 'cubic-bezier(0.22, 1, 0.36, 1)';
+
+        carEl.animate([
+            { transform: 'translateX(-48px)' },
+            { transform: 'translateX(6px)', offset: 0.7 },
+            { transform: 'none' }
+        ], { duration: 750, easing: ease });
+
+        carEl.querySelectorAll('.car-wheel').forEach(wheel => {
+            wheel.animate([{ transform: 'rotate(-600deg)' }, { transform: 'rotate(0deg)' }], { duration: 850, easing: ease });
+        });
+
+        carEl.querySelector('.car-body')?.animate([
+            { transform: 'translateY(0)' },
+            { transform: 'translateY(-4px) rotate(-0.6deg)', offset: 0.55 },
+            { transform: 'translateY(0)' }
+        ], { duration: 750, easing: 'ease-out' });
+
+        carEl.querySelector('.car-shine')?.animate([
+            { transform: 'skewX(-20deg) translateX(0px)' },
+            { transform: 'skewX(-20deg) translateX(640px)' }
+        ], { duration: 1100, delay: 250, easing: 'ease-in-out' });
+
+        carEl.querySelector('img')?.animate([
+            { transform: 'scale(1.08)', filter: 'brightness(1.3)' },
+            { transform: 'scale(1)', filter: 'brightness(1)' }
+        ], { duration: 700, easing: ease });
+    },
+
+    // ---------- Scroll reveal ----------
+    reveal(container, selector) {
+        if (this.reduced || !container || !('IntersectionObserver' in window)) return;
+        this.revealObserver?.disconnect();
+        this.revealObserver = new IntersectionObserver(entries => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('revealed');
+                    this.revealObserver.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+
+        container.querySelectorAll(selector).forEach((el, i) => {
+            el.classList.add('reveal');
+            el.style.transitionDelay = `${Math.min(i, 6) * 60}ms`;
+            this.revealObserver.observe(el);
+        });
     },
 
     // ---------- Removing an element ----------
@@ -222,6 +274,10 @@ const Motion = {
     // ---------- Chart.js: smoother, staggered animations ----------
     setupChartDefaults() {
         if (typeof Chart === 'undefined') return;
+        // Dark theme
+        Chart.defaults.color = '#8A91AB';
+        Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.06)';
+        Chart.defaults.font.family = "'Inter', sans-serif";
         if (this.reduced) {
             Chart.defaults.animation = false;
             return;

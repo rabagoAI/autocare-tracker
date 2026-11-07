@@ -41,14 +41,20 @@ const Backup = {
     },
 
     buildJson() {
+        // Only photos of vehicles that still exist
+        const photos = Object.fromEntries(AppData.vehicles
+            .filter(v => Photos.get(v.id))
+            .map(v => [v.id, Photos.get(v.id)]));
+
         return JSON.stringify({
-            version: '1.1',
+            version: '1.2',
             exportDate: new Date().toISOString(),
             appName: 'AutoCare Tracker',
             data: {
                 vehicles: AppData.vehicles,
                 expenses: AppData.expenses,
-                settings: AppData.settings
+                settings: AppData.settings,
+                photos
             }
         }, null, 2);
     },

@@ -842,6 +842,11 @@ body {
     color: #4F46E5;
 }
 
+.category-badge.tax {
+    background: #F3E8FF;
+    color: #9333EA;
+}
+
 .category-badge.brakes {
     background: #FCE7F3;
     color: #DB2777;

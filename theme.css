@@ -1,0 +1,816 @@
+/* AutoCare Tracker - Dark theme
+   Loaded after styles.css and motion.css. The gray scale is inverted (50 is the
+   darkest surface, 900 the lightest text), so most components adapt by
+   themselves; the rest are adjusted below. */
+
+:root {
+    color-scheme: dark;
+
+    --primary: #3B6BFF;
+    --primary-dark: #2D55D6;
+    --primary-light: #6E92FF;
+    --secondary: #22C58B;
+    --warning: #F5B33A;
+    --danger: #F2555A;
+    --danger-dark: #D93E44;
+
+    --bg: #06070C;
+    --surface: #0F121B;
+    --surface-2: #151926;
+    --border: rgba(255, 255, 255, 0.07);
+    --glow: rgba(59, 107, 255, 0.35);
+    --on-accent: #FFFFFF;
+
+    --white: #0F121B;
+    --gray-50: #131724;
+    --gray-100: #1A1F2F;
+    --gray-200: #242A3D;
+    --gray-300: #323950;
+    --gray-400: #5D6584;
+    --gray-500: #8A91AB;
+    --gray-600: #A6ACC4;
+    --gray-700: #C5CADB;
+    --gray-800: #DFE3EE;
+    --gray-900: #F5F7FC;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 8px 24px rgba(0, 0, 0, 0.35);
+    --shadow-md: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 12px 32px rgba(0, 0, 0, 0.45);
+    --shadow-lg: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 18px 48px rgba(0, 0, 0, 0.55);
+    --shadow-xl: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 48px var(--glow);
+
+    --font-display: 'Unbounded', 'Inter', sans-serif;
+}
+
+/* ---------- Background with blue light ---------- */
+body {
+    background:
+        radial-gradient(ellipse 70% 45% at 70% -10%, rgba(59, 107, 255, 0.28), transparent 70%),
+        radial-gradient(ellipse 50% 40% at 0% 100%, rgba(59, 107, 255, 0.14), transparent 70%),
+        var(--bg);
+    background-attachment: fixed;
+    color: var(--gray-800);
+}
+
+::selection {
+    background: rgba(59, 107, 255, 0.45);
+    color: #fff;
+}
+
+/* ---------- Display type: wide uppercase headings ---------- */
+.header-title h1,
+.page-info h2,
+.detail-title h2,
+.garage-title,
+.logo span {
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: 0.01em;
+    font-weight: 600;
+}
+
+.page-info h2 {
+    font-size: clamp(1.4rem, 3vw, 2.1rem);
+    line-height: 1.15;
+}
+
+.header-title h1 {
+    font-size: 1.15rem;
+}
+
+.chart-card h3,
+.activity-card h3,
+.alerts-card h3,
+.report-card h3,
+.settings-card h3,
+.detail-card h3 {
+    font-family: var(--font-display);
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--gray-700);
+}
+
+/* ---------- Glass surfaces ---------- */
+.sidebar,
+.header {
+    background: rgba(9, 11, 18, 0.72);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    border-color: var(--border);
+}
+
+.sidebar {
+    border-right: 1px solid var(--border);
+}
+
+.header {
+    border-bottom: 1px solid var(--border);
+}
+
+.sidebar-header,
+.sidebar-footer {
+    border-color: var(--border);
+}
+
+.stat-card,
+.chart-card,
+.activity-card,
+.alerts-card,
+.report-card,
+.settings-card,
+.vehicle-card,
+.detail-card,
+.detail-stat,
+.expenses-table-container,
+.modal-content,
+.filters-bar,
+.expenses-table tbody tr {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01)), var(--surface);
+    border: 1px solid var(--border);
+}
+
+.expenses-table th {
+    background: var(--surface-2);
+}
+
+.expenses-table th,
+.expenses-table td,
+.card-header,
+.setting-item,
+.backup-section,
+.timeline-year,
+.modal-header {
+    border-color: var(--border);
+}
+
+/* ---------- Navigation ---------- */
+.nav-item.active {
+    color: var(--on-accent);
+    background: linear-gradient(135deg, var(--primary), #5B3BFF);
+    box-shadow: 0 8px 24px rgba(59, 107, 255, 0.35);
+}
+
+.logo svg {
+    color: var(--primary-light);
+    filter: drop-shadow(0 0 8px var(--glow));
+}
+
+.avatar {
+    background: linear-gradient(135deg, var(--primary), #5B3BFF);
+    color: var(--on-accent);
+}
+
+/* ---------- Buttons (rounded like the reference) ---------- */
+.btn {
+    border-radius: 999px;
+}
+
+.btn-primary {
+    color: var(--on-accent);
+    background: linear-gradient(135deg, var(--primary), #4F5BFF);
+    box-shadow: 0 6px 20px rgba(59, 107, 255, 0.35);
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, var(--primary-light), var(--primary));
+    box-shadow: 0 8px 28px rgba(59, 107, 255, 0.5);
+}
+
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--gray-800);
+    border: 1px solid var(--border);
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.btn-danger,
+.btn-danger-outline:hover,
+.action-btn.delete:hover {
+    color: var(--on-accent);
+}
+
+.action-btn.delete {
+    background: rgba(242, 85, 90, 0.14);
+}
+
+.toast {
+    background: var(--surface-2);
+    color: var(--gray-900);
+    border: 1px solid var(--border);
+}
+
+.toast.success {
+    background: #10915F;
+    color: var(--on-accent);
+}
+
+.toast.error {
+    background: var(--danger-dark);
+    color: var(--on-accent);
+}
+
+/* ---------- Form fields ---------- */
+input,
+select,
+textarea,
+.select,
+.select-sm,
+.input {
+    background: var(--surface-2);
+    color: var(--gray-900);
+    border-color: var(--gray-200);
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: var(--gray-400);
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.8);
+}
+
+/* ---------- Soft colored surfaces, translucent on dark ---------- */
+.stat-icon.vehicles { background: rgba(59, 107, 255, 0.16); }
+.stat-icon.expenses { background: rgba(34, 197, 139, 0.16); }
+.stat-icon.monthly { background: rgba(245, 179, 58, 0.16); }
+.stat-icon.alerts { background: rgba(242, 85, 90, 0.16); }
+
+.alert-item { background: var(--gray-50); }
+.alert-item.warning { background: rgba(245, 179, 58, 0.08); }
+.alert-item.danger { background: rgba(242, 85, 90, 0.08); }
+.alert-item.success { background: rgba(34, 197, 139, 0.08); }
+.alert-item.warning .alert-icon { background: rgba(245, 179, 58, 0.18); }
+.alert-item.danger .alert-icon { background: rgba(242, 85, 90, 0.18); }
+.alert-item.success .alert-icon { background: rgba(34, 197, 139, 0.18); }
+
+.category-badge.oil { background: rgba(245, 158, 11, 0.15); color: #FBBF5B; }
+.category-badge.tires { background: rgba(99, 102, 241, 0.18); color: #A5A8FF; }
+.category-badge.tax { background: rgba(168, 85, 247, 0.18); color: #D3A6FF; }
+.category-badge.brakes { background: rgba(236, 72, 153, 0.16); color: #F79BCB; }
+.category-badge.itv { background: rgba(16, 185, 129, 0.15); color: #5EE0B0; }
+.category-badge.parts { background: rgba(239, 68, 68, 0.15); color: #FF9393; }
+.category-badge.maintenance { background: rgba(124, 58, 237, 0.18); color: #BFA2FF; }
+.category-badge.insurance { background: rgba(59, 107, 255, 0.18); color: #9DB5FF; }
+.category-badge.fuel { background: rgba(20, 184, 166, 0.15); color: #5FE3D2; }
+.category-badge.other { background: rgba(255, 255, 255, 0.07); color: var(--gray-600); }
+
+.backup-info.success,
+.maint-badge {
+    background: rgba(34, 197, 139, 0.14);
+    color: #5EE0B0;
+}
+
+.maint-item.warning .maint-badge { background: rgba(245, 179, 58, 0.16); color: #FBC96B; }
+.maint-item.danger .maint-badge { background: rgba(242, 85, 90, 0.16); color: #FF9A9D; }
+.maint-item.unknown .maint-badge { background: rgba(255, 255, 255, 0.06); color: var(--gray-500); }
+
+.backup-reminder {
+    background: linear-gradient(135deg, rgba(59, 107, 255, 0.16), rgba(245, 179, 58, 0.1));
+    border-color: rgba(59, 107, 255, 0.35);
+}
+
+.fuel-fields {
+    background: rgba(20, 184, 166, 0.07);
+    border-color: rgba(20, 184, 166, 0.25);
+}
+
+.form-warning {
+    background: rgba(245, 179, 58, 0.1);
+    border-color: rgba(245, 179, 58, 0.4);
+    color: #FBD38D;
+}
+
+.vehicle-consumption {
+    background: rgba(20, 184, 166, 0.1);
+    color: #5FE3D2;
+}
+
+.timeline-dot {
+    box-shadow: 0 0 0 3px var(--surface);
+}
+
+.link-btn,
+.back-link {
+    color: var(--primary-light);
+}
+
+.modal-overlay {
+    background: rgba(2, 3, 8, 0.7);
+}
+
+/* ---------- Search ---------- */
+.search-bar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.search-bar svg {
+    position: absolute;
+    left: 18px;
+    width: 18px;
+    height: 18px;
+    color: var(--gray-500);
+    pointer-events: none;
+}
+
+.search-bar input {
+    width: 100%;
+    padding: 14px 44px 14px 48px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font: inherit;
+    font-size: 0.9375rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.search-bar input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(59, 107, 255, 0.18);
+}
+
+.search-bar input::-webkit-search-cancel-button {
+    display: none;
+}
+
+.search-clear {
+    position: absolute;
+    right: 10px;
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--gray-600);
+    cursor: pointer;
+}
+
+.search-clear[hidden] {
+    display: none;
+}
+
+.results-summary {
+    margin: -4px 4px 12px;
+    font-size: 0.8125rem;
+    color: var(--gray-500);
+}
+
+.results-summary:empty {
+    display: none;
+}
+
+/* ---------- Scrollbar ---------- */
+::-webkit-scrollbar-track {
+    background: var(--bg);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--gray-200);
+}
+
+/* ============================================
+   GARAGE: vehicle carousel + selected vehicle sheet
+   ============================================ */
+.garage {
+    position: relative;
+    margin: -8px -32px 24px;
+    padding: 8px 0 0;
+    overflow: hidden;
+}
+
+.garage-head {
+    padding: 0 32px;
+    text-align: center;
+}
+
+.garage-kicker {
+    display: inline-block;
+    margin-bottom: 8px;
+    padding: 4px 12px;
+    border: 1px solid rgba(59, 107, 255, 0.4);
+    border-radius: 999px;
+    color: var(--primary-light);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.garage-title {
+    font-size: clamp(1.6rem, 5vw, 3rem);
+    line-height: 1.1;
+    color: var(--gray-900);
+}
+
+.garage-subtitle {
+    margin-top: 8px;
+    color: var(--gray-500);
+    font-size: 0.875rem;
+}
+
+.garage-stage {
+    position: relative;
+}
+
+/* Floor light under the selected car */
+.garage-stage::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: 64px;
+    width: min(70vw, 560px);
+    height: 140px;
+    transform: translateX(-50%);
+    background: radial-gradient(ellipse at center, var(--car-glow, rgba(59, 107, 255, 0.55)), transparent 70%);
+    filter: blur(12px);
+    opacity: 0.9;
+    transition: background 0.5s ease;
+    pointer-events: none;
+}
+
+.garage-track {
+    position: relative;
+    display: flex;
+    gap: 8px;
+    padding: 24px calc(50% - var(--slide-width) / 2) 12px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    --slide-width: min(64vw, 440px);
+    -webkit-overflow-scrolling: touch;
+}
+
+.garage-track::-webkit-scrollbar {
+    display: none;
+}
+
+.garage-slide {
+    --d: 1;
+    flex: 0 0 var(--slide-width);
+    scroll-snap-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    transform: scale(calc(1 - var(--d) * 0.32)) translateY(calc(var(--d) * 18px));
+    opacity: calc(1 - var(--d) * 0.55);
+    filter: saturate(calc(1 - var(--d) * 0.8)) brightness(calc(1 - var(--d) * 0.35));
+    will-change: transform, opacity;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.garage-slide:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 4px;
+    border-radius: 16px;
+}
+
+.garage-car {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 7;
+    display: grid;
+    place-items: end center;
+}
+
+.garage-car svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    filter: drop-shadow(0 18px 18px rgba(0, 0, 0, 0.6));
+}
+
+.garage-car img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 18px;
+    -webkit-mask-image: linear-gradient(180deg, #000 70%, transparent);
+    mask-image: linear-gradient(180deg, #000 70%, transparent);
+}
+
+.garage-plate {
+    padding: 3px 10px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.92);
+    color: #111;
+    font-family: var(--font-display);
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+}
+
+.garage-name {
+    font-family: var(--font-display);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    color: var(--gray-900);
+    text-align: center;
+}
+
+.garage-add .garage-car {
+    place-items: center;
+}
+
+.garage-add-icon {
+    display: grid;
+    place-items: center;
+    width: 96px;
+    height: 96px;
+    border: 2px dashed rgba(255, 255, 255, 0.25);
+    border-radius: 50%;
+    color: var(--gray-500);
+    font-size: 2.5rem;
+    transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.garage-add:hover .garage-add-icon {
+    border-color: var(--primary);
+    color: var(--primary-light);
+}
+
+/* Car parts animated from motion */
+.car-wheel {
+    transform-box: fill-box;
+    transform-origin: center;
+}
+
+.car-shine {
+    mix-blend-mode: screen;
+}
+
+.garage-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 4px 32px 8px;
+}
+
+.garage-arrow {
+    width: 40px;
+    height: 40px;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--gray-800);
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.garage-arrow:hover {
+    background: rgba(59, 107, 255, 0.25);
+    transform: scale(1.08);
+}
+
+.garage-arrow:disabled {
+    opacity: 0.3;
+    cursor: default;
+    transform: none;
+}
+
+.garage-dots {
+    display: flex;
+    gap: 6px;
+}
+
+.garage-dot {
+    width: 8px;
+    height: 8px;
+    padding: 0;
+    border: none;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.2);
+    cursor: pointer;
+    transition: width 0.35s var(--ease-spring, ease), background 0.35s ease;
+}
+
+.garage-dot.active {
+    width: 28px;
+    background: var(--primary);
+}
+
+.garage-sheet {
+    min-height: 200px;
+}
+
+.garage-empty {
+    padding: 24px 32px 48px;
+    text-align: center;
+    color: var(--gray-500);
+}
+
+/* The sheet header inside the garage does not repeat the car picture */
+.garage-sheet .detail-hero {
+    background:
+        radial-gradient(ellipse at 0% 0%, var(--car-glow, rgba(59, 107, 255, 0.3)), transparent 60%),
+        var(--surface);
+    border: 1px solid var(--border);
+}
+
+.detail-emoji {
+    background: var(--surface-2);
+}
+
+/* Scroll reveal (set from motion.js) */
+.reveal {
+    opacity: 0;
+    transform: translateY(28px);
+    transition: opacity 0.7s var(--ease-out, ease), transform 0.7s var(--ease-out, ease);
+}
+
+.reveal.revealed {
+    opacity: 1;
+    transform: none;
+}
+
+@media (max-width: 768px) {
+    .garage {
+        margin: -8px -16px 16px;
+    }
+
+    .garage-head {
+        padding: 0 16px;
+    }
+
+    .garage-track {
+        --slide-width: 62vw;
+        gap: 0;
+    }
+
+    .garage-stage::before {
+        bottom: 56px;
+        height: 100px;
+    }
+
+    .garage-arrow {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .reveal {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+/* Idle life on the selected car: a light sweep and the headlights glowing */
+.garage-slide[aria-current="true"] .car-shine {
+    animation: carShine 5s ease-in-out 1.5s infinite;
+}
+
+.garage-slide[aria-current="true"] .car-headlight {
+    animation: headlightGlow 2.4s ease-in-out infinite;
+}
+
+@keyframes carShine {
+    0%, 70% { transform: skewX(-20deg) translateX(0); }
+    100% { transform: skewX(-20deg) translateX(640px); }
+}
+
+@keyframes headlightGlow {
+    0%, 100% { opacity: 0.6; filter: drop-shadow(0 0 2px #9FC0FF); }
+    50% { opacity: 1; filter: drop-shadow(0 0 8px #9FC0FF); }
+}
+
+/* ---------- Vehicle form: color and photo ---------- */
+.color-picker {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.color-swatch {
+    width: 32px;
+    height: 32px;
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    border-radius: 50%;
+    background: var(--swatch);
+    cursor: pointer;
+    transition: transform 0.2s var(--ease-spring, ease), box-shadow 0.2s ease;
+}
+
+.color-swatch:hover {
+    transform: scale(1.12);
+}
+
+.color-swatch.active {
+    border-color: #fff;
+    box-shadow: 0 0 0 3px var(--primary), 0 0 16px var(--swatch);
+    transform: scale(1.1);
+}
+
+.color-picker input[type="color"] {
+    width: 36px;
+    height: 36px;
+    padding: 2px;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.photo-field {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.photo-preview {
+    display: grid;
+    place-items: center;
+    width: 140px;
+    height: 84px;
+    overflow: hidden;
+    border: 1px dashed var(--gray-300);
+    border-radius: 12px;
+    background: var(--surface-2);
+    color: var(--gray-500);
+    font-size: 0.6875rem;
+    text-align: center;
+    padding: 6px;
+}
+
+.photo-preview:has(img) {
+    padding: 0;
+    border-style: solid;
+}
+
+.photo-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.photo-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.photo-actions label.btn {
+    cursor: pointer;
+}
+
+/* Sheet header: the name is already the garage title */
+.detail-kicker {
+    display: block;
+    margin-bottom: 2px;
+    font-family: var(--font-display);
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--primary-light);
+}
+
+.detail-title p {
+    font-size: 0.9375rem;
+    color: var(--gray-700);
+}
+
+.detail-actions .btn {
+    white-space: nowrap;
+}
+
+.detail-actions .btn-danger-outline {
+    flex: 0 0 auto;
+    padding-left: 14px;
+    padding-right: 14px;
+}
+
+.garage-dots {
+    min-height: 8px;
+}
+
+/* The hidden attribute always wins over the display of buttons */
+.btn[hidden],
+button[hidden] {
+    display: none !important;
+}
+
+.filters-bar {
+    padding: 16px;
+    border-radius: var(--radius-md);
+}
+
+@media (max-width: 480px) {
+    .header-title h1 {
+        font-size: 0.9rem;
+    }
+}
