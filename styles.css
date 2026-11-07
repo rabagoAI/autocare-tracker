@@ -128,6 +128,13 @@ body {
     border-top: 1px solid var(--gray-100);
 }
 
+.sidebar-download {
+    width: 100%;
+    justify-content: center;
+    margin-bottom: 16px;
+    font-size: 0.8125rem;
+}
+
 .privacy-note {
     margin-top: 12px;
     font-size: 0.75rem;

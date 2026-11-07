@@ -86,6 +86,13 @@ const Motion = {
     },
 
     // ---------- Modals ----------
+    openModal(modal) {
+        if (!modal) return;
+        clearTimeout(modal._closeTimer);
+        modal.classList.remove('closing');
+        modal.classList.add('active');
+    },
+
     closeModal(modal) {
         if (!modal || !modal.classList.contains('active')) return;
         if (this.reduced) {
@@ -93,7 +100,7 @@ const Motion = {
             return;
         }
         modal.classList.add('closing');
-        setTimeout(() => modal.classList.remove('active', 'closing'), 200);
+        modal._closeTimer = setTimeout(() => modal.classList.remove('active', 'closing'), 200);
     },
 
     // ---------- Effects layer ----------

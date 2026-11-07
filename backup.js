@@ -139,6 +139,27 @@ const Backup = {
         this.markBackup('download');
     },
 
+    // On phones and tablets the system share sheet is more reliable than a
+    // download (it lets you save to Files, Drive, mail...). Falls back to a download.
+    async exportFile() {
+        const isTouch = window.matchMedia('(pointer: coarse)').matches;
+        const file = new File([this.buildJson()], this.fileName(), { type: 'application/json' });
+
+        if (isTouch && navigator.canShare?.({ files: [file] })) {
+            try {
+                await navigator.share({ files: [file], title: 'Copia de AutoCare Tracker' });
+                this.markBackup('download');
+                return 'shared';
+            } catch (error) {
+                if (error.name === 'AbortError') return 'cancelled';
+                console.warn('Share:', error);
+            }
+        }
+
+        this.download();
+        return 'downloaded';
+    },
+
     // Best available option: the folder if there is one, otherwise a download
     async saveNow() {
         if (this.folderSupported && this.folderName) {

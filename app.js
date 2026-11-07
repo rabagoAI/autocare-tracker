@@ -143,6 +143,15 @@ function normalizeExpense(e) {
     };
 }
 
+// Current odometer: the highest of the reading typed in the vehicle and the
+// mileage of its expenses, so adding, editing or deleting an expense updates it
+function getCurrentMileage(vehicle) {
+    const readings = AppData.expenses
+        .filter(e => e.vehicleId === vehicle.id)
+        .map(e => parseInt(e.mileage) || 0);
+    return Math.max(parseInt(vehicle.mileage) || 0, ...readings);
+}
+
 function vehicleName(vehicle, fallback = 'Vehículo eliminado') {
     return vehicle ? escapeHtml(`${vehicle.make} ${vehicle.model}`) : fallback;
 }
@@ -293,13 +302,12 @@ function calculateAlerts() {
             .filter(e => e.vehicleId === vehicle.id)
             .sort((a, b) => parseInt(b.mileage) - parseInt(a.mileage));
 
-        const lastMileage = vehicleExpenses.length > 0 
-            ? parseInt(vehicleExpenses[0].mileage) 
-            : parseInt(vehicle.mileage);
+        const lastMileage = getCurrentMileage(vehicle);
 
-        // Oil change alert
-        const lastOilChange = vehicleExpenses.find(e => e.category === 'oil');
-        const lastOilMileage = lastOilChange ? parseInt(lastOilChange.mileage) : parseInt(vehicle.mileage);
+        // Oil change alert (without a recorded change, count from when the vehicle was added)
+        const lastOilChange = vehicleExpenses.find(e => e.category === 'oil' && parseInt(e.mileage) > 0);
+        const startMileage = vehicle.initialMileage ?? (parseInt(vehicle.mileage) || 0);
+        const lastOilMileage = lastOilChange ? parseInt(lastOilChange.mileage) : startMileage;
         const oilDueMileage = lastOilMileage + AppData.settings.oilInterval;
 
         if (oilDueMileage - lastMileage <= 2000) {
@@ -623,7 +631,7 @@ function renderVehicles() {
                 </div>
                 <div class="vehicle-stats">
                     <div class="vehicle-stat">
-                        <div class="vehicle-stat-value">${AppData.formatNumber(vehicle.mileage)}</div>
+                        <div class="vehicle-stat-value">${AppData.formatNumber(getCurrentMileage(vehicle))}</div>
                         <div class="vehicle-stat-label">${AppData.getDistanceLabel()}</div>
                     </div>
                     <div class="vehicle-stat">
@@ -674,7 +682,7 @@ function openVehicleModal(vehicleId = null) {
             document.getElementById('vehicleModel').value = vehicle.model;
             document.getElementById('vehicleYear').value = vehicle.year || '';
             document.getElementById('vehiclePlate').value = vehicle.plate;
-            document.getElementById('vehicleMileage').value = vehicle.mileage;
+            document.getElementById('vehicleMileage').value = getCurrentMileage(vehicle);
             document.getElementById('vehicleRegistration').value = vehicle.registrationDate || '';
             document.getElementById('vehicleNotes').value = vehicle.notes || '';
         }
@@ -683,7 +691,7 @@ function openVehicleModal(vehicleId = null) {
         document.getElementById('vehicleId').value = '';
     }
 
-    modal.classList.add('active');
+    Motion.openModal(modal);
 }
 
 function closeVehicleModal() {
@@ -737,7 +745,7 @@ function confirmDeleteVehicle(vehicleId) {
     document.getElementById('deleteMessage').textContent = 
         `¿Estás seguro de que quieres eliminar ${vehicle.make} ${vehicle.model}? Todos sus gastos también se eliminarán.`;
     document.getElementById('confirmDeleteBtn').onclick = () => deleteVehicle(vehicleId);
-    document.getElementById('deleteModal').classList.add('active');
+    Motion.openModal(document.getElementById('deleteModal'));
 }
 
 async function deleteVehicle(vehicleId) {
@@ -888,7 +896,7 @@ function openExpenseModal(expenseId = null, preselectedVehicleId = null) {
         }
     }
 
-    modal.classList.add('active');
+    Motion.openModal(modal);
 }
 
 function closeExpenseModal() {
@@ -913,14 +921,6 @@ function saveExpense(e) {
         notes: document.getElementById('expenseNotes').value.trim()
     };
 
-    // Update vehicle mileage if new mileage is higher
-    if (mileage > 0) {
-        const vehicle = AppData.vehicles.find(v => v.id === vehicleId);
-        if (vehicle && mileage > parseInt(vehicle.mileage)) {
-            vehicle.mileage = mileage;
-        }
-    }
-
     if (id) {
         // Update existing
         const index = AppData.expenses.findIndex(e => e.id === id);
@@ -941,7 +941,7 @@ function saveExpense(e) {
 
     AppData.saveData();
     closeExpenseModal();
-    renderExpenses();
+    renderCurrentPage();
     updateDashboard();
 }
 
@@ -955,7 +955,7 @@ function confirmDeleteExpense(expenseId) {
     document.getElementById('deleteMessage').textContent = 
         `¿Estás seguro de que quieres eliminar este gasto de ${vehicleName}?`;
     document.getElementById('confirmDeleteBtn').onclick = () => deleteExpense(expenseId);
-    document.getElementById('deleteModal').classList.add('active');
+    Motion.openModal(document.getElementById('deleteModal'));
 }
 
 async function deleteExpense(expenseId) {
@@ -964,7 +964,7 @@ async function deleteExpense(expenseId) {
     AppData.expenses = AppData.expenses.filter(e => e.id !== expenseId);
     AppData.saveData();
     AppData.showToast('Gasto eliminado correctamente', 'success');
-    renderExpenses();
+    renderCurrentPage();
     updateDashboard();
 }
 
@@ -1161,7 +1161,7 @@ function renderKmCostSummary(reportExpenses) {
 
         const readings = vehicleExpenses.map(e => parseInt(e.mileage)).filter(m => m > 0);
         if (!hasRange) {
-            readings.push(parseInt(vehicle.mileage) || 0);
+            readings.push(getCurrentMileage(vehicle));
             if (vehicle.initialMileage !== null && vehicle.initialMileage !== undefined) {
                 readings.push(vehicle.initialMileage);
             }
@@ -1219,7 +1219,7 @@ function confirmClearAllData() {
     document.getElementById('deleteMessage').textContent = 
         '¿Estás seguro de que quieres eliminar TODOS los datos? Esta acción no se puede deshacer.';
     document.getElementById('confirmDeleteBtn').onclick = clearAllData;
-    document.getElementById('deleteModal').classList.add('active');
+    Motion.openModal(document.getElementById('deleteModal'));
 }
 
 function clearAllData() {
@@ -1236,9 +1236,13 @@ function clearAllData() {
 // EXPORT/IMPORT DATA
 // ============================================
 
-function exportData() {
-    Backup.download();
-    AppData.showToast('Datos exportados correctamente', 'success');
+async function exportData() {
+    const result = await Backup.exportFile();
+    if (result === 'cancelled') return;
+    AppData.showToast(
+        result === 'shared' ? 'Copia lista: guárdala donde prefieras' : 'Copia descargada (JSON)',
+        'success'
+    );
 }
 
 // Merges the imported data into the current data without deleting anything.
@@ -1408,7 +1412,7 @@ function getCategoryColor(category) {
 }
 
 function openPrivacyModal() {
-    document.getElementById('privacyModal').classList.add('active');
+    Motion.openModal(document.getElementById('privacyModal'));
 }
 
 function closePrivacyModal() {
@@ -1493,6 +1497,7 @@ AppData.setupEventListeners = function() {
 
     // Export/Import data
     document.getElementById('exportData').addEventListener('click', exportData);
+    document.getElementById('sidebarExportData').addEventListener('click', exportData);
     document.getElementById('importData').addEventListener('change', importData);
 
     // Report date range
