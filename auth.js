@@ -82,6 +82,7 @@ const Auth = {
             [/rate limit|too many requests|security purposes/i, 'Demasiados intentos seguidos. Espera un minuto y vuelve a probar.'],
             [/invalid email|unable to validate email/i, 'Ese email no parece válido.'],
             [/same password|different from the old/i, 'La nueva contraseña tiene que ser distinta de la anterior.'],
+            [/error sending .*email|smtp/i, 'No hemos podido enviarte el email. Inténtalo de nuevo en unos minutos y, si sigue fallando, avísanos.'],
             [/failed to fetch|network/i, 'No hay conexión con el servidor. Revisa tu conexión a Internet.']
         ];
         const match = known.find(([pattern]) => pattern.test(text));

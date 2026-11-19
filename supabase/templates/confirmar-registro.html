@@ -1,0 +1,13 @@
+<!-- AutoCare Tracker · plantilla de email de Supabase (pegar en Authentication → Emails) -->
+<div style="margin:0;padding:32px 16px;background:#06070C;font-family:Arial,Helvetica,sans-serif;">
+  <div style="max-width:480px;margin:0 auto;padding:32px 28px;background:#0F121B;border:1px solid #1E2333;border-radius:16px;">
+    <p style="margin:0 0 24px;font-size:20px;font-weight:bold;letter-spacing:1px;color:#F5F7FC;">AUTOCARE</p>
+    <h1 style="margin:0 0 12px;font-size:20px;color:#F5F7FC;">Confirma tu cuenta</h1>
+    <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#C5CADB;">Gracias por registrarte en AutoCare, tu garaje digital. Pulsa el botón para confirmar tu email y empezar a guardar los gastos de tus vehículos.</p>
+    <p style="margin:0 0 24px;">
+      <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:14px 26px;background:#3B6BFF;color:#ffffff;text-decoration:none;font-weight:bold;border-radius:999px;">Confirmar mi cuenta</a>
+    </p>
+    <p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#8A91AB;">Si no has creado una cuenta en AutoCare, ignora este email: no se activará nada.</p>
+    <p style="margin:24px 0 0;font-size:12px;color:#5D6584;">Este email se ha enviado a {{ .Email }} desde AutoCare Tracker.</p>
+  </div>
+</div>

@@ -117,10 +117,12 @@ const Cloud = {
     },
 
     // ---------- Load everything for the signed-in user ----------
+    // Oldest first, so the garage shows the vehicles in the order they were added
     async fetchAll(table) {
         const rows = [];
         for (let from = 0; ; from += this.PAGE) {
-            const { data, error } = await this.client.from(table).select('*').order('id').range(from, from + this.PAGE - 1);
+            const { data, error } = await this.client.from(table).select('*')
+                .order('created_at').order('id').range(from, from + this.PAGE - 1);
             if (error) throw error;
             rows.push(...data);
             if (data.length < this.PAGE) return rows;
@@ -182,7 +184,14 @@ const Cloud = {
 
         try {
             const check = ({ error }) => { if (error) throw error; };
-            if (upsertVehicles.length) check(await this.client.from('vehicles').upsert(upsertVehicles, { onConflict: 'user_id,id' }));
+            // New vehicles one by one, so each gets its own created_at and the
+            // garage keeps the order in which they were added
+            const newVehicles = upsertVehicles.filter(r => !(r.id in this.synced.vehicles));
+            const changedVehicles = upsertVehicles.filter(r => r.id in this.synced.vehicles);
+            for (const row of newVehicles) {
+                check(await this.client.from('vehicles').upsert(row, { onConflict: 'user_id,id' }));
+            }
+            if (changedVehicles.length) check(await this.client.from('vehicles').upsert(changedVehicles, { onConflict: 'user_id,id' }));
             for (let i = 0; i < upsertExpenses.length; i += 500) {
                 check(await this.client.from('expenses').upsert(upsertExpenses.slice(i, i + 500), { onConflict: 'user_id,id' }));
             }
