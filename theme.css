@@ -821,3 +821,236 @@ button[hidden] {
         font-size: 0.9rem;
     }
 }
+
+/* ============================================
+   ACCOUNTS (Supabase)
+   ============================================ */
+/* Blocks that depend on having an account */
+.cloud-only { display: none; }
+body.cloud-mode .cloud-only { display: revert; }
+body.cloud-mode .local-only { display: none; }
+body.cloud-mode button.cloud-only,
+body.cloud-mode a.cloud-only { display: inline; }
+
+/* While the sign-in screen is shown, the app stays behind it */
+body.auth-active .sidebar,
+body.auth-active .main-content { visibility: hidden; }
+
+.auth-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    display: grid;
+    place-items: center;
+    padding: 24px 16px;
+    overflow-y: auto;
+    background:
+        radial-gradient(ellipse 70% 50% at 50% -10%, rgba(59, 107, 255, 0.35), transparent 70%),
+        var(--bg);
+}
+
+.auth-screen[hidden] { display: none; }
+
+.auth-card {
+    width: 100%;
+    max-width: 440px;
+    padding: 32px 28px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015)), var(--surface);
+    box-shadow: var(--shadow-xl);
+    animation: modalIn 0.6s var(--ease-spring, ease);
+}
+
+.auth-brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--gray-900);
+}
+
+.auth-brand svg {
+    width: 34px;
+    height: 34px;
+    color: var(--primary-light);
+    filter: drop-shadow(0 0 10px var(--glow));
+}
+
+.auth-tagline {
+    margin: 8px 0 20px;
+    text-align: center;
+    font-size: 0.875rem;
+    color: var(--gray-500);
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.auth-form[hidden] { display: none; }
+
+.auth-form h2 {
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--gray-900);
+}
+
+.auth-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--gray-600);
+}
+
+.auth-form input[type="email"],
+.auth-form input[type="password"] {
+    padding: 12px 14px;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius);
+    font: inherit;
+    font-size: 1rem;
+}
+
+.auth-form input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(59, 107, 255, 0.18);
+}
+
+.auth-form .btn {
+    justify-content: center;
+    padding: 13px 20px;
+    font-size: 0.9375rem;
+}
+
+.auth-check {
+    flex-direction: row !important;
+    align-items: flex-start;
+    gap: 10px !important;
+    line-height: 1.45;
+}
+
+.auth-check input {
+    width: 18px;
+    height: 18px;
+    margin-top: 2px;
+    flex-shrink: 0;
+    accent-color: var(--primary);
+}
+
+.auth-form a,
+.auth-footer a {
+    color: var(--primary-light);
+}
+
+.auth-links {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+    font-size: 0.8125rem;
+    color: var(--gray-500);
+}
+
+.auth-hint {
+    font-size: 0.875rem;
+    color: var(--gray-500);
+}
+
+.auth-legal {
+    padding: 12px 14px;
+    border-radius: var(--radius);
+    background: var(--surface-2);
+    font-size: 0.6875rem;
+    line-height: 1.5;
+    color: var(--gray-500);
+}
+
+.auth-legal strong { color: var(--gray-700); }
+
+.auth-message {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    border-radius: var(--radius);
+    font-size: 0.8125rem;
+    line-height: 1.45;
+}
+
+.auth-message[hidden] { display: none; }
+.auth-message.error { background: rgba(242, 85, 90, 0.12); color: #FF9A9D; border: 1px solid rgba(242, 85, 90, 0.35); }
+.auth-message.success { background: rgba(34, 197, 139, 0.12); color: #5EE0B0; border: 1px solid rgba(34, 197, 139, 0.35); }
+
+.auth-footer {
+    margin-top: 22px;
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--gray-500);
+}
+
+.offline-banner {
+    padding: 10px 16px;
+    background: rgba(245, 179, 58, 0.14);
+    border-bottom: 1px solid rgba(245, 179, 58, 0.35);
+    color: #FBD38D;
+    font-size: 0.8125rem;
+    text-align: center;
+}
+
+.offline-banner[hidden] { display: none; }
+
+.danger-account {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+}
+
+.danger-account p {
+    margin-bottom: 10px;
+    font-size: 0.8125rem;
+    color: var(--gray-500);
+}
+
+.user-details .link-btn {
+    font-size: 0.75rem;
+    text-align: left;
+}
+
+.user-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 170px;
+}
+
+/* The sign-in card never grows wider than the screen */
+.auth-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: safe center;
+}
+
+.auth-card {
+    flex-shrink: 0;
+    width: 100%;
+    max-width: 440px;
+    min-width: 0;
+    padding: 28px 20px;
+}
+
+.auth-form input[type="email"],
+.auth-form input[type="password"] {
+    width: 100%;
+    min-width: 0;
+}

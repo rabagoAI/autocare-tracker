@@ -77,18 +77,21 @@
                 Descargar mis datos (JSON)
             </button>
             <div class="user-info">
-                <div class="avatar">U</div>
+                <div class="avatar" id="accountAvatar">U</div>
                 <div class="user-details">
-                    <span class="user-name">Usuario</span>
-                    <span class="user-role">Propietario</span>
+                    <span class="user-name" id="accountEmail">Usuario</span>
+                    <span class="user-role local-only">Datos en este navegador</span>
+                    <button type="button" class="link-btn cloud-only" id="logoutBtn">Cerrar sesión</button>
                 </div>
             </div>
-            <p class="privacy-note">🔒 Tus datos se guardan solo en este navegador. <button type="button" class="link-btn" onclick="openPrivacyModal()">Privacidad</button></p>
+            <p class="privacy-note local-only">🔒 Tus datos se guardan solo en este navegador. <button type="button" class="link-btn" onclick="openPrivacyModal()">Privacidad</button></p>
+            <p class="privacy-note cloud-only">🔒 Tus datos, solo visibles para ti. <a class="link-btn" href="privacidad.html">Privacidad</a> · <a class="link-btn" href="aviso-legal.html">Aviso legal</a> · <a class="link-btn" href="cookies.html">Cookies</a></p>
         </div>
     </aside>
 
     <!-- Main Content -->
     <main class="main-content">
+        <div class="offline-banner" id="offlineBanner" role="status" hidden>📡 Sin conexión: estás viendo tus últimos datos guardados. Para añadir o editar necesitas conexión.</div>
         <!-- Header -->
         <header class="header">
             <button class="menu-toggle" id="menuToggle">
@@ -519,6 +522,10 @@
                         </svg>
                         Eliminar Todos los Datos
                     </button>
+                    <div class="cloud-only danger-account">
+                        <p>Borra tu cuenta, todos tus vehículos, gastos y fotos. No se puede deshacer.</p>
+                        <button type="button" class="btn btn-danger-outline" id="deleteAccountBtn">Eliminar mi cuenta</button>
+                    </div>
                 </div>
             </div>
         </section>
@@ -757,6 +764,14 @@
                 </button>
             </div>
             <div class="modal-body privacy-body">
+                <div class="cloud-only">
+                    <h3>¿Dónde se guardan tus datos?</h3>
+                    <p>Con tu cuenta, tus vehículos, gastos, fotos y configuración se guardan en Supabase (servidores en la Unión Europea) y solo tú puedes verlos. En este dispositivo queda una copia para consultarlos sin conexión, que se borra al cerrar sesión.</p>
+                    <p>No usamos cookies de analítica ni publicidad: solo lo técnico para mantener tu sesión iniciada.</p>
+                    <p>Puedes descargar tus datos en JSON cuando quieras y eliminar tu cuenta desde Configuración → Zona de Peligro.</p>
+                    <p>Toda la información: <a class="link-btn" href="privacidad.html">Política de Privacidad</a> · <a class="link-btn" href="cookies.html">Política de Cookies</a> · <a class="link-btn" href="aviso-legal.html">Aviso Legal</a>.</p>
+                </div>
+                <div class="local-only">
                 <h3>¿Dónde se guardan tus datos?</h3>
                 <p>Los vehículos, gastos y la configuración se guardan únicamente en el almacenamiento local (<code>localStorage</code>) de este navegador. No se envían a ningún servidor ni los ve nadie más.</p>
                 <p>Por eso, si cambias de navegador o de dispositivo, o borras los datos de navegación, no los verás. Para llevarlos de un sitio a otro usa <strong>Exportar</strong> e <strong>Importar</strong> en Configuración.</p>
@@ -777,10 +792,83 @@
 
                 <h3>Borrar tus datos</h3>
                 <p>Puedes eliminarlos en cualquier momento desde Configuración → Zona de Peligro, o borrando los datos del sitio en tu navegador.</p>
+                </div>
             </div>
             <div class="form-actions">
                 <button type="button" class="btn btn-primary" onclick="closePrivacyModal()">Entendido</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Confirmation dialog (AppDialog.confirm) -->
+    <div class="modal" id="confirmModal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content small">
+            <div class="modal-header"><h2 id="confirmTitle">¿Seguro?</h2></div>
+            <div class="modal-body"><p id="confirmMessage"></p></div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" id="confirmCancel">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="confirmOk">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sign in / sign up (only with a Supabase configuration) -->
+    <div class="auth-screen" id="authScreen" hidden>
+        <div class="auth-card">
+            <div class="auth-brand">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path d="M5 17a2 2 0 1 0 4 0a2 2 0 0 0-4 0M15 17a2 2 0 1 0 4 0a2 2 0 0 0-4 0"/>
+                    <path d="M5 17H3v-4l2-5h9l4 5h1a2 2 0 0 1 2 2v4h-2m-7 3h8m-8 3h8m-8 3h8"/>
+                </svg>
+                <span>AutoCare</span>
+            </div>
+            <p class="auth-tagline">Tu garaje digital: gastos, mantenimientos y consumo de tus vehículos.</p>
+            <div class="auth-message" id="authMessage" role="alert" hidden></div>
+
+            <form class="auth-form" id="loginForm" data-mode="login" hidden>
+                <h2>Entrar</h2>
+                <label>Email<input type="email" name="email" autocomplete="email" required></label>
+                <label>Contraseña<input type="password" name="password" autocomplete="current-password" required></label>
+                <button type="submit" class="btn btn-primary">Entrar</button>
+                <p class="auth-links">
+                    <a href="#" data-auth-go="forgot">¿Has olvidado la contraseña?</a>
+                    <span>¿No tienes cuenta? <a href="#" data-auth-go="register">Créala aquí</a></span>
+                </p>
+            </form>
+
+            <form class="auth-form" id="registerForm" data-mode="register" hidden>
+                <h2>Crear cuenta</h2>
+                <label>Email<input type="email" name="email" autocomplete="email" required></label>
+                <label>Contraseña<input type="password" name="password" autocomplete="new-password" minlength="8" required></label>
+                <label>Repite la contraseña<input type="password" name="password2" autocomplete="new-password" minlength="8" required></label>
+                <label class="auth-check">
+                    <input type="checkbox" name="privacy">
+                    <span>He leído y acepto la <a href="privacidad.html" target="_blank" rel="noopener">Política de Privacidad</a>.</span>
+                </label>
+                <button type="submit" class="btn btn-primary">Crear cuenta</button>
+                <div class="auth-legal">
+                    <p><strong>Responsable:</strong> [COMPLETAR: nombre y apellidos o razón social]. <strong>Finalidad:</strong> crear y gestionar tu cuenta para guardar los datos de tus vehículos. <strong>Legitimación:</strong> tu consentimiento y la prestación del servicio que solicitas. <strong>Destinatarios:</strong> Supabase (alojamiento de datos en la UE) y Vercel (alojamiento web), como encargados del tratamiento; no se ceden datos a terceros. <strong>Derechos:</strong> acceso, rectificación, supresión, oposición, limitación y portabilidad, escribiendo a [COMPLETAR: email de contacto]. Más información en la <a href="privacidad.html" target="_blank" rel="noopener">Política de Privacidad</a>.</p>
+                </div>
+                <p class="auth-links"><span>¿Ya tienes cuenta? <a href="#" data-auth-go="login">Entra</a></span></p>
+            </form>
+
+            <form class="auth-form" id="forgotForm" data-mode="forgot" hidden>
+                <h2>Recuperar contraseña</h2>
+                <p class="auth-hint">Te enviaremos un enlace para elegir una contraseña nueva.</p>
+                <label>Email<input type="email" name="email" autocomplete="email" required></label>
+                <button type="submit" class="btn btn-primary">Enviar enlace</button>
+                <p class="auth-links"><a href="#" data-auth-go="login">Volver a entrar</a></p>
+            </form>
+
+            <form class="auth-form" id="newPasswordForm" data-mode="newPassword" hidden>
+                <h2>Nueva contraseña</h2>
+                <label>Contraseña nueva<input type="password" name="password" autocomplete="new-password" minlength="8" required></label>
+                <label>Repítela<input type="password" name="password2" autocomplete="new-password" minlength="8" required></label>
+                <button type="submit" class="btn btn-primary">Guardar contraseña</button>
+            </form>
+
+            <p class="auth-footer"><a href="aviso-legal.html">Aviso legal</a> · <a href="privacidad.html">Privacidad</a> · <a href="cookies.html">Cookies</a></p>
         </div>
     </div>
 
@@ -791,9 +879,13 @@
     </div>
 
     <script src="vendor/chart.umd.4.4.7.js"></script>
+    <script src="vendor/supabase.umd.2.118.0.js"></script>
+    <script src="config.js"></script>
     <script src="motion.js"></script>
     <script src="backup.js"></script>
     <script src="garage.js"></script>
+    <script src="cloud.js"></script>
+    <script src="auth.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

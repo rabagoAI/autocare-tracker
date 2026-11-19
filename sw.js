@@ -1,6 +1,6 @@
 // AutoCare Tracker - Service worker: the app works offline.
 // Only caches the app's own files; user data stays in localStorage.
-const CACHE = 'autocare-v2.0.0';
+const CACHE = 'autocare-v3.0.0';
 const APP_SHELL = [
     './',
     'index.html',
@@ -10,6 +10,14 @@ const APP_SHELL = [
     'motion.js',
     'backup.js',
     'garage.js',
+    'cloud.js',
+    'auth.js',
+    'config.js',
+    'vendor/supabase.umd.2.118.0.js',
+    'legal.css',
+    'privacidad.html',
+    'aviso-legal.html',
+    'cookies.html',
     'theme.css',
     'vendor/fonts/unbounded.css',
     'vendor/fonts/unbounded-latin-wght-normal.woff2',

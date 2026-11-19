@@ -18,13 +18,15 @@ const AppData = {
     },
 
     init() {
-        this.loadData();
+        this.defaultSettings = { ...this.settings };
         this.setupEventListeners();
         Garage.init();
-        // Photos load asynchronously; the garage is redrawn once they are ready
-        Photos.load().then(() => {
-            if (document.getElementById('vehiclesPage').classList.contains('active')) renderVehicles();
-        });
+        // Loads the data (account or this browser) and then calls start()
+        Auth.start();
+    },
+
+    // Draws the app once the data is loaded
+    start() {
         renderCurrentPage();
         updateDashboard();
         Motion.enterPage(document.querySelector('.page.active'));
@@ -53,6 +55,12 @@ const AppData = {
     },
 
     saveData() {
+        // With an account, the changes go to Supabase (and its offline cache)
+        if (Cloud.user) {
+            Cloud.sync();
+            Backup.onDataChanged();
+            return;
+        }
         try {
             localStorage.setItem('autocare_vehicles', JSON.stringify(this.vehicles));
             localStorage.setItem('autocare_expenses', JSON.stringify(this.expenses));
@@ -2156,16 +2164,17 @@ AppData.setupEventListeners = function() {
     });
 
     // Modal overlays
-    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    // The confirmation dialog only closes with its buttons (it waits for an answer)
+    document.querySelectorAll('.modal:not(#confirmModal) .modal-overlay').forEach(overlay => {
         overlay.addEventListener('click', () => {
-            document.querySelectorAll('.modal').forEach(modal => Motion.closeModal(modal));
+            document.querySelectorAll('.modal:not(#confirmModal)').forEach(modal => Motion.closeModal(modal));
         });
     });
 
     // Close modals on Escape key
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            document.querySelectorAll('.modal').forEach(modal => Motion.closeModal(modal));
+            document.querySelectorAll('.modal:not(#confirmModal)').forEach(modal => Motion.closeModal(modal));
         }
     });
 };

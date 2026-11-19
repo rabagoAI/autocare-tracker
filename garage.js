@@ -87,10 +87,14 @@ function vehicleArtwork(vehicle) {
         : carSvg(vehicle);
 }
 
-// ---------- Photos (IndexedDB, only in this browser) ----------
+// ---------- Photos ----------
+// Local cache in IndexedDB. With an account, keys are "<user id>:<vehicle id>"
+// (so two people on the same device do not mix photos) and every change is
+// also sent to the account's private storage folder.
 const Photos = {
     cache: {},
     ready: null,
+    prefix: '',
 
     db(mode, action) {
         return new Promise((resolve, reject) => {
@@ -110,7 +114,10 @@ const Photos = {
         });
     },
 
-    load() {
+    // Loads the photos of the current prefix (user) into memory
+    load(prefix = this.prefix) {
+        this.prefix = prefix;
+        this.cache = {};
         this.ready = new Promise(resolve => {
             try {
                 const request = indexedDB.open('autocare-photos', 1);
@@ -123,7 +130,9 @@ const Photos = {
                     cursor.onsuccess = () => {
                         const current = cursor.result;
                         if (current) {
-                            this.cache[current.key] = current.value;
+                            const key = String(current.key);
+                            const own = prefix ? key.startsWith(prefix) : !key.includes(':');
+                            if (own) this.cache[key.slice(prefix.length)] = current.value;
                             current.continue();
                         } else {
                             db.close();
@@ -143,23 +152,62 @@ const Photos = {
         return this.cache[vehicleId] || null;
     },
 
-    async save(vehicleId, dataUrl) {
+    // local: only the device cache (used when the photo comes from the account)
+    async save(vehicleId, dataUrl, { local = false } = {}) {
         this.cache[vehicleId] = dataUrl;
         try {
-            await this.db('readwrite', store => store.put(dataUrl, vehicleId));
+            await this.db('readwrite', store => store.put(dataUrl, this.prefix + vehicleId));
         } catch (error) {
             console.warn('Photos:', error);
             AppData.showToast('No se ha podido guardar la foto', 'error');
         }
+        if (!local && Cloud.user) await Cloud.uploadPhoto(vehicleId, dataUrl);
     },
 
-    async remove(vehicleId) {
+    async remove(vehicleId, { local = false } = {}) {
         delete this.cache[vehicleId];
         try {
-            await this.db('readwrite', store => store.delete(vehicleId));
+            await this.db('readwrite', store => store.delete(this.prefix + vehicleId));
         } catch (error) {
             console.warn('Photos:', error);
         }
+        if (!local && Cloud.user) await Cloud.removePhoto(vehicleId);
+    },
+
+    // Photos saved before having an account (keys without a user prefix)
+    async legacy() {
+        const result = {};
+        await this.db('readonly', store => {
+            const cursor = store.openCursor();
+            cursor.onsuccess = () => {
+                const current = cursor.result;
+                if (!current) return;
+                if (!String(current.key).includes(':')) result[current.key] = current.value;
+                current.continue();
+            };
+            return cursor;
+        }).catch(() => {});
+        return result;
+    },
+
+    // On sign-out the device keeps no photos of that account
+    async clearPrefix(prefix) {
+        if (!prefix) return;
+        const keys = [];
+        await this.db('readonly', store => {
+            const cursor = store.openCursor();
+            cursor.onsuccess = () => {
+                const current = cursor.result;
+                if (!current) return;
+                if (String(current.key).startsWith(prefix)) keys.push(current.key);
+                current.continue();
+            };
+            return cursor;
+        }).catch(() => {});
+        for (const key of keys) {
+            await this.db('readwrite', store => store.delete(key)).catch(() => {});
+        }
+        this.cache = {};
     },
 
     // Resized to keep backups small: max 1200 px wide, JPEG
