@@ -309,6 +309,33 @@ function updateDashboard() {
     renderCharts();
 }
 
+// A maintenance job also counts when it was recorded under a general category
+// with a description that names it ("Revisión y cambio de aceite")
+const MAINTENANCE_KEYWORDS = {
+    oil: /aceite/i,
+    brakes: /fren|pastilla/i,
+    tires: /neum[aá]tico|rueda/i
+};
+
+function isMaintenanceRecord(expense, type) {
+    if (expense.category === type) return true;
+    return ['maintenance', 'parts', 'other'].includes(expense.category) &&
+        MAINTENANCE_KEYWORDS[type].test(expense.description);
+}
+
+// Km of an expense. Without km, the highest reading known up to its date; if
+// there is none, the current odometer (jobs are usually recorded right away).
+function getExpenseMileage(expense, vehicle) {
+    if (expense.mileage > 0) return { mileage: expense.mileage, estimated: false };
+    const readings = AppData.expenses
+        .filter(e => e.vehicleId === vehicle.id && e.mileage > 0 && e.date <= expense.date)
+        .map(e => e.mileage);
+    return {
+        mileage: readings.length ? Math.max(...readings) : getCurrentMileage(vehicle),
+        estimated: true
+    };
+}
+
 // Status of every maintenance item of a vehicle, whether it is close or not.
 // status: ok | warning | danger | unknown (no data to calculate it)
 function getMaintenanceStatus(vehicle) {
@@ -331,24 +358,28 @@ function getMaintenanceStatus(vehicle) {
         // Electric vehicles have no engine oil
         if (config.type === 'oil' && vehicle.fuelType === 'electric') return;
 
+        // The most recent job by date, with or without km
         const lastRecord = vehicleExpenses
-            .filter(e => e.category === config.type && e.mileage > 0)
-            .sort((a, b) => b.mileage - a.mileage)[0];
+            .filter(e => isMaintenanceRecord(e, config.type))
+            .sort((a, b) => b.date.localeCompare(a.date) || b.mileage - a.mileage)[0];
 
         if (!lastRecord && !config.fromStart) {
-            items.push({ type: config.type, title: config.title, priority: config.priority, status: 'unknown', progress: null, detail: 'Sin registros con kilometraje' });
+            items.push({ type: config.type, title: config.title, priority: config.priority, status: 'unknown', progress: null, detail: 'Sin registros todavía' });
             return;
         }
 
-        const from = lastRecord ? lastRecord.mileage : startMileage;
+        const { mileage: from, estimated } = lastRecord
+            ? getExpenseMileage(lastRecord, vehicle)
+            : { mileage: startMileage, estimated: false };
         const remaining = from + config.interval - current;
+        const note = estimated ? ' (km del último cambio estimados)' : '';
         items.push({
             type: config.type,
             title: config.title,
             priority: config.priority,
             status: remaining <= 0 ? 'danger' : remaining <= config.margin ? 'warning' : 'ok',
             progress: Math.min(Math.max((current - from) / config.interval, 0), 1),
-            detail: remaining <= 0 ? `Pasado por ${fmt(-remaining)} ${unit}` : `Faltan ${fmt(remaining)} ${unit}`,
+            detail: (remaining <= 0 ? `Pasado por ${fmt(-remaining)} ${unit}` : `Faltan ${fmt(remaining)} ${unit}`) + note,
             message: `${name}: ${remaining <= 0 ? `pasado por ${fmt(-remaining)} ${unit}` : `${fmt(remaining)} ${unit} restantes`}`
         });
     });
@@ -1416,7 +1447,7 @@ function checkExpenseMileage(vehicleId, date, mileage, expenseId) {
 
 function showMileageWarning(message) {
     const warning = document.getElementById('mileageWarning');
-    warning.innerHTML = `<strong>⚠️ Revisa el kilometraje.</strong> ${escapeHtml(message)} Si es correcto, pulsa «Guardar igualmente».`;
+    warning.innerHTML = `<strong>⚠️ Revisa el kilometraje.</strong> ${escapeHtml(message)} Si quieres guardarlo así, pulsa «Guardar igualmente».`;
     warning.hidden = false;
     document.getElementById('expenseSubmit').textContent = 'Guardar igualmente';
     document.getElementById('expenseMileage').focus();
@@ -1450,7 +1481,10 @@ function saveExpense(e) {
 
     // A suspicious mileage is shown once; saving again confirms it
     const form = document.getElementById('expenseForm');
-    const warning = checkExpenseMileage(vehicleId, date, mileage, id);
+    const needsMileage = ['oil', 'brakes', 'tires'].includes(category) && !mileage;
+    const warning = needsMileage
+        ? `Sin kilometraje no podemos saber con exactitud cuándo toca el próximo ${category === 'oil' ? 'cambio de aceite' : category === 'brakes' ? 'cambio de frenos' : 'cambio de neumáticos'}: lo estimaremos con el último dato que tengamos. Añade los km del cuentakilómetros para que sea exacto.`
+        : checkExpenseMileage(vehicleId, date, mileage, id);
     if (warning && form.dataset.confirmedMileage !== `${vehicleId}|${date}|${mileage}`) {
         showMileageWarning(warning);
         form.dataset.confirmedMileage = `${vehicleId}|${date}|${mileage}`;
