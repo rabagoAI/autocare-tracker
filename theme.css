@@ -235,6 +235,16 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     filter: invert(0.8);
 }
 
+/* On phones, fields under 16px make iOS zoom in on focus, and the page then
+   scrolls sideways */
+@media (pointer: coarse) {
+    input,
+    select,
+    textarea {
+        font-size: 16px !important;
+    }
+}
+
 /* ---------- Soft colored surfaces, translucent on dark ---------- */
 .stat-icon.vehicles { background: rgba(59, 107, 255, 0.16); }
 .stat-icon.expenses { background: rgba(34, 197, 139, 0.16); }

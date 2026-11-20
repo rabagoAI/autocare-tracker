@@ -226,9 +226,17 @@ const Cloud = {
 
     async uploadPhoto(vehicleId, dataUrl) {
         if (!this.user || !navigator.onLine) return false;
-        const blob = await (await fetch(dataUrl)).blob();
-        const { error } = await this.client.storage.from('vehicle-photos')
-            .upload(this.photoPath(vehicleId), blob, { upsert: true, contentType: 'image/jpeg' });
+        let error;
+        try {
+            // Decoded by hand: the CSP (connect-src) does not allow fetch() on data: URLs
+            const [meta, base64] = dataUrl.split(',');
+            const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+            const blob = new Blob([bytes], { type: meta.slice(5).split(';')[0] || 'image/jpeg' });
+            ({ error } = await this.client.storage.from('vehicle-photos')
+                .upload(this.photoPath(vehicleId), blob, { upsert: true, contentType: blob.type }));
+        } catch (uploadError) {
+            error = uploadError;
+        }
         if (error) {
             console.error('Photo upload:', error);
             AppData.showToast('No se ha podido subir la foto a tu cuenta', 'error');
