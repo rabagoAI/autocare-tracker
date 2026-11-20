@@ -279,6 +279,8 @@ const Backup = {
 
     // ---------- Reminder on the dashboard ----------
     shouldRemind() {
+        // With an account the data is already in the cloud
+        if (typeof Cloud !== 'undefined' && Cloud.user) return false;
         const days = AppData.settings.backupReminderDays;
         if (!days || !this.hasData() || !this.hasUnsavedChanges()) return false;
 
