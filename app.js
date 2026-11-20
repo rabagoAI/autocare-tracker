@@ -174,6 +174,16 @@ function getCurrentMileage(vehicle) {
     return Math.max(parseInt(vehicle.mileage) || 0, ...readings);
 }
 
+// Km when the vehicle started being tracked. 0 means it was added without km
+// (and corrected later), so the lowest real reading is used instead.
+function getStartMileage(vehicle) {
+    if (vehicle.initialMileage > 0) return vehicle.initialMileage;
+    const readings = [vehicle.mileage, ...AppData.expenses.filter(e => e.vehicleId === vehicle.id).map(e => e.mileage)]
+        .map(m => parseInt(m) || 0)
+        .filter(m => m > 0);
+    return readings.length ? Math.min(...readings) : 0;
+}
+
 function vehicleName(vehicle, fallback = 'Vehículo eliminado') {
     return vehicle ? escapeHtml(`${vehicle.make} ${vehicle.model}`) : fallback;
 }
@@ -352,7 +362,7 @@ function getMaintenanceStatus(vehicle) {
     const name = `${vehicle.make} ${vehicle.model}`;
     const current = getCurrentMileage(vehicle);
     const vehicleExpenses = AppData.expenses.filter(e => e.vehicleId === vehicle.id);
-    const startMileage = vehicle.initialMileage ?? (parseInt(vehicle.mileage) || 0);
+    const startMileage = getStartMileage(vehicle);
     const items = [];
 
     // By distance. Oil counts from when the vehicle was added if there is no record.
@@ -380,7 +390,8 @@ function getMaintenanceStatus(vehicle) {
             ? getExpenseMileage(lastRecord, vehicle)
             : { mileage: startMileage, estimated: false };
         const remaining = from + config.interval - current;
-        const note = estimated ? ' (km del último cambio estimados)' : '';
+        const note = estimated ? ' (km del último cambio estimados)'
+            : !lastRecord ? ' (sin cambios registrados: cuenta desde el alta del vehículo)' : '';
         items.push({
             type: config.type,
             title: config.title,
@@ -895,7 +906,10 @@ async function saveVehicle(e) {
         // Update existing
         const index = AppData.vehicles.findIndex(v => v.id === id);
         if (index !== -1) {
-            AppData.vehicles[index] = { ...AppData.vehicles[index], ...vehicleData };
+            const updated = { ...AppData.vehicles[index], ...vehicleData };
+            // Added without km: the first real reading becomes the starting point
+            if (!(updated.initialMileage > 0)) updated.initialMileage = getStartMileage(updated) || null;
+            AppData.vehicles[index] = updated;
             AppData.showToast('Vehículo actualizado correctamente', 'success');
         }
     } else {
@@ -974,7 +988,7 @@ function renderVehicleDetail(container, vehicle) {
     const current = getCurrentMileage(vehicle);
 
     const readings = [current, ...expenses.map(e => e.mileage).filter(m => m > 0)];
-    if (vehicle.initialMileage !== null && vehicle.initialMileage !== undefined) readings.push(vehicle.initialMileage);
+    if (vehicle.initialMileage > 0) readings.push(vehicle.initialMileage);
     const distance = Math.max(...readings) - Math.min(...readings);
 
     const facts = [
@@ -1754,9 +1768,7 @@ function renderKmCostSummary(reportExpenses) {
         const readings = vehicleExpenses.map(e => parseInt(e.mileage)).filter(m => m > 0);
         if (!hasRange) {
             readings.push(getCurrentMileage(vehicle));
-            if (vehicle.initialMileage !== null && vehicle.initialMileage !== undefined) {
-                readings.push(vehicle.initialMileage);
-            }
+            if (vehicle.initialMileage > 0) readings.push(vehicle.initialMileage);
         }
 
         const distance = readings.length > 1 ? Math.max(...readings) - Math.min(...readings) : 0;
