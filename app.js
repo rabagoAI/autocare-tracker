@@ -167,6 +167,12 @@ function normalizeExpense(e) {
 
 // Current odometer: the highest of the reading typed in the vehicle and the
 // mileage of its expenses, so adding, editing or deleting an expense updates it
+// Km typed in a form. "149.000" means 149000: the dots are thousands
+// separators, as usually written in Spain.
+function parseKm(value) {
+    return parseInt(String(value).replace(/\D/g, '')) || 0;
+}
+
 function getCurrentMileage(vehicle) {
     const readings = AppData.expenses
         .filter(e => e.vehicleId === vehicle.id)
@@ -892,7 +898,7 @@ async function saveVehicle(e) {
         model: document.getElementById('vehicleModel').value.trim(),
         year: parseInt(document.getElementById('vehicleYear').value) || null,
         plate: document.getElementById('vehiclePlate').value.trim().toUpperCase(),
-        mileage: parseInt(document.getElementById('vehicleMileage').value) || 0,
+        mileage: parseKm(document.getElementById('vehicleMileage').value),
         registrationDate: document.getElementById('vehicleRegistration').value,
         insuranceDue: document.getElementById('vehicleInsuranceDue').value,
         taxDue: document.getElementById('vehicleTaxDue').value,
@@ -1460,6 +1466,11 @@ function checkExpenseMileage(vehicleId, date, mileage, expenseId) {
 
     const vehicle = AppData.vehicles.find(v => v.id === vehicleId);
     const known = Math.max(parseInt(vehicle?.mileage) || 0, ...others.map(e => e.mileage));
+    // A few hundred km on a car with a hundred thousand usually lacks the thousands
+    const start = vehicle ? getStartMileage(vehicle) : 0;
+    if (start > 0 && mileage < start / 10) {
+        return `Este gasto tiene ${fmt(mileage)}, pero el vehículo ya tenía ${fmt(start)} cuando lo añadiste. ¿Falta alguna cifra?`;
+    }
     if (known > 0 && mileage - known > 30000) {
         return `Son ${fmt(mileage - known)} más que el último dato (${fmt(known)}). ¿Sobra alguna cifra?`;
     }
@@ -1496,7 +1507,7 @@ function saveExpense(e) {
 
     const id = document.getElementById('expenseId').value;
     const vehicleId = document.getElementById('expenseVehicle').value;
-    const mileage = parseInt(document.getElementById('expenseMileage').value) || 0;
+    const mileage = parseKm(document.getElementById('expenseMileage').value);
     const date = document.getElementById('expenseDate').value;
     const category = document.getElementById('expenseCategory').value;
     const isFuel = category === 'fuel';
@@ -1807,10 +1818,10 @@ function renderSettings() {
 function saveSettings() {
     AppData.settings.currency = document.getElementById('currencySetting').value;
     AppData.settings.distanceUnit = document.getElementById('distanceSetting').value;
-    AppData.settings.oilInterval = parseInt(document.getElementById('oilInterval').value) || 15000;
-    AppData.settings.brakesInterval = parseInt(document.getElementById('brakesInterval').value) || 20000;
+    AppData.settings.oilInterval = parseKm(document.getElementById('oilInterval').value) || 15000;
+    AppData.settings.brakesInterval = parseKm(document.getElementById('brakesInterval').value) || 20000;
     AppData.settings.itvInterval = parseInt(document.getElementById('itvInterval').value) || 24;
-    AppData.settings.tiresInterval = parseInt(document.getElementById('tiresInterval').value) || 40000;
+    AppData.settings.tiresInterval = parseKm(document.getElementById('tiresInterval').value) || 40000;
     const reminderDays = parseInt(document.getElementById('backupReminderDays').value);
     AppData.settings.backupReminderDays = Number.isNaN(reminderDays) ? 30 : reminderDays;
 
